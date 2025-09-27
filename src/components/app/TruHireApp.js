@@ -305,6 +305,9 @@ export class TruHireApp extends LitElement {
             this.currentResponseIndex = -1;
             this.startTime = Date.now();
             
+            // Store interview start time for duration tracking
+            localStorage.setItem('interviewStartTime', this.startTime.toString());
+            
             // Go to assistant view
             this.currentView = 'assistant';
             
@@ -462,13 +465,86 @@ export class TruHireApp extends LitElement {
             context += `\n`;
         }
         
-        context += `INTERVIEW ASSISTANCE INSTRUCTIONS:\n`;
-        context += `- Use this context to provide relevant interview responses\n`;
+        context += `VERIFICATION DATABASE FOR CREDIBILITY CHECKING:\n`;
+        context += `Use this data to VERIFY every claim the candidate makes during the interview.\n\n`;
+        
+        // Add verification checklist
+        if (analysisData.analysis?.resume) {
+            const resume = analysisData.analysis.resume;
+            context += `RESUME VERIFICATION CHECKLIST:\n`;
+            
+            if (resume.parsedData?.experience) {
+                context += `- EMPLOYMENT HISTORY: `;
+                resume.parsedData.experience.forEach(exp => {
+                    context += `"${exp.company}" (${exp.title}, ${exp.duration}), `;
+                });
+                context += `\n`;
+            }
+            
+            if (resume.parsedData?.education) {
+                context += `- EDUCATION HISTORY: `;
+                resume.parsedData.education.forEach(edu => {
+                    context += `"${edu.institution}" (${edu.degree}, ${edu.year}), `;
+                });
+                context += `\n`;
+            }
+            
+            if (resume.parsedData?.skills?.all) {
+                context += `- VERIFIED SKILLS: ${resume.parsedData.skills.all.join(', ')}\n`;
+            }
+            
+            const totalExperience = this.calculateResumeExperience(resume.parsedData?.experience || []);
+            context += `- CALCULATED TOTAL EXPERIENCE: ${totalExperience} years\n`;
+        }
+        
+        if (analysisData.analysis?.github) {
+            const github = analysisData.analysis.github;
+            context += `\nGITHUB VERIFICATION DATA:\n`;
+            context += `- ACCOUNT AGE: ${Math.floor((Date.now() - new Date(github.userInfo.accountCreationDate).getTime()) / (1000 * 60 * 60 * 24 * 365))} years\n`;
+            context += `- VERIFIED LANGUAGES: ${github.languageStats.map(l => `${l.language} (${l.percentage.toFixed(1)}%)`).join(', ')}\n`;
+            context += `- REPOSITORY COUNT: ${github.userInfo.publicRepos}\n`;
+            context += `- RECENT ACTIVITY: ${github.activity.recentCommits} commits this week\n`;
+        }
+        
+        context += `\nINTERVIEWER ASSISTANCE INSTRUCTIONS:\n`;
+        context += `- VERIFY every claim against the above data\n`;
+        context += `- FLAG any discrepancies immediately\n`;
+        context += `- Suggest probing questions when claims seem inflated\n`;
+        context += `- Help the interviewer assess credibility in real-time\n`;
         context += `- Reference specific projects, technologies, and achievements when appropriate\n`;
-        context += `- Help the interviewer ask informed questions about the candidate's background\n`;
         context += `- Provide context-aware suggestions for technical discussions\n`;
         
         return context;
+    }
+
+    calculateResumeExperience(experiences) {
+        if (!experiences || experiences.length === 0) return 0;
+        
+        let totalMonths = 0;
+        const currentYear = new Date().getFullYear();
+        
+        experiences.forEach(exp => {
+            if (exp.duration) {
+                const duration = exp.duration.toLowerCase();
+                
+                if (duration.includes('present') || duration.includes('current')) {
+                    const startMatch = duration.match(/(\d{4})/);
+                    if (startMatch) {
+                        const startYear = parseInt(startMatch[1]);
+                        totalMonths += (currentYear - startYear) * 12;
+                    }
+                } else {
+                    const yearMatches = duration.match(/(\d{4})/g);
+                    if (yearMatches && yearMatches.length >= 2) {
+                        const startYear = parseInt(yearMatches[0]);
+                        const endYear = parseInt(yearMatches[yearMatches.length - 1]);
+                        totalMonths += (endYear - startYear) * 12;
+                    }
+                }
+            }
+        });
+        
+        return Math.round(totalMonths / 12);
     }
 
     async handleAPIKeyHelp() {
@@ -531,6 +607,19 @@ export class TruHireApp extends LitElement {
         this.currentResponseIndex = e.detail.index;
         this.shouldAnimateResponse = false;
         this.requestUpdate();
+    }
+
+    handleInterviewEnded() {
+        // Interview has been ended from AssistantView
+        this.sessionActive = false;
+        
+        // Clear previous interview data for fresh start
+        localStorage.removeItem('currentCandidate');
+        localStorage.removeItem('candidateAnalysis');
+        
+        // Return to candidate setup for next interview
+        this.currentView = 'candidateSetup';
+        console.log('Interview ended by user, returning to candidate setup for next interview');
     }
 
     // Onboarding event handlers
@@ -646,6 +735,7 @@ export class TruHireApp extends LitElement {
                             console.log('[response-animation-complete] Marked current response as complete');
                             this.requestUpdate();
                         }}
+                        @interview-ended=${this.handleInterviewEnded}
                     ></assistant-view>
                 `;
 

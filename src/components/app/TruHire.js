@@ -342,6 +342,7 @@ export class TruHireApp extends LitElement {
         this.requestUpdate();
     }
 
+
     // Onboarding event handlers
     handleOnboardingComplete() {
         this.currentView = 'main';

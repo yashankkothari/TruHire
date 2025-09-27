@@ -524,6 +524,33 @@ export class AssistantView extends LitElement {
             color: #ef4444;
         }
 
+        .end-interview-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+        }
+
+        .end-interview-button:hover {
+            background: linear-gradient(135deg, #b91c1c, #dc2626);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+        }
+
+        .end-interview-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+        }
+
         .insights-list {
             display: flex;
             flex-direction: column;
@@ -1076,6 +1103,7 @@ export class AssistantView extends LitElement {
         this.credibilityScore = 85; // Start at 85 to allow for both improvement and decline
         this.inconsistenciesCount = 0;
         this.credibilityHistory = [];
+        this.flaggedContradictions = new Set(); // Track already flagged contradictions
         
         // Initialize transcript data
         this.transcriptMessages = [];
@@ -1226,6 +1254,9 @@ export class AssistantView extends LitElement {
 
         // Load and apply font size
         this.loadFontSize();
+        
+        // Reset contradiction tracking for new interview
+        this.flaggedContradictions = new Set();
 
         // Set up IPC listeners for keyboard shortcuts
         if (window.require) {
@@ -1489,6 +1520,9 @@ export class AssistantView extends LitElement {
     analyzeResponse(response) {
         const lowerResponse = response.toLowerCase();
         
+        // Comprehensive claim verification
+        this.verifyAllClaims(response);
+        
         // Check for contradictions with GitHub data
         if (this.candidateData?.analysis?.github) {
             this.checkForContradictions(lowerResponse, this.candidateData.analysis.github);
@@ -1504,7 +1538,6 @@ export class AssistantView extends LitElement {
     }
 
     checkForContradictions(response, github) {
-        const contradictions = [];
         
         // Check experience claims vs GitHub activity
         const lowerResponse = response.toLowerCase();
@@ -1514,23 +1547,13 @@ export class AssistantView extends LitElement {
         if (hasExperienceClaim) {
             const accountAge = Math.floor((Date.now() - new Date(github.userInfo.accountCreationDate).getTime()) / (1000 * 60 * 60 * 24 * 365));
             if (accountAge < 2) {
-                contradictions.push({
-                    type: 'contradiction',
-                    time: this.formatTime(new Date()),
-                    header: 'EXPERIENCE MISMATCH',
-                    content: `Claims senior role but GitHub account only ${accountAge} year(s) old.`
-                });
-                this.inconsistenciesCount++;
-                // Real-time credibility update
-                this.updateCredibilityScore('experience-mismatch', 'high');
+                this.addContradiction('experience-mismatch', 'high',
+                    'EXPERIENCE MISMATCH',
+                    `Claims senior role but GitHub account only ${accountAge} year(s) old.`);
             } else if (accountAge < 4 && github.activity.recentCommits < 5) {
-                contradictions.push({
-                    type: 'warning',
-                    time: this.formatTime(new Date()),
-                    header: 'LIMITED ACTIVITY',
-                    content: `Claims experience but low recent activity (${github.activity.recentCommits} commits).`
-                });
-                this.updateCredibilityScore('experience-mismatch', 'medium');
+                this.addContradiction('experience-mismatch', 'medium',
+                    'LIMITED ACTIVITY',
+                    `Claims experience but low recent activity (${github.activity.recentCommits} commits).`);
             }
         }
         
@@ -1546,21 +1569,13 @@ export class AssistantView extends LitElement {
                 );
                 
                 if (langMention && lang.percentage < 10) {
-                    contradictions.push({
-                        type: 'warning',
-                        time: this.formatTime(new Date()),
-                        header: 'LIMITED EXPERIENCE',
-                        content: `Mentions ${lang.language} but only ${lang.percentage.toFixed(1)}% of repositories use it.`
-                    });
-                    this.updateCredibilityScore('skill-contradiction', 'low');
+                    this.addContradiction('skill-contradiction', 'low',
+                        'LIMITED EXPERIENCE',
+                        `Mentions ${lang.language} but only ${lang.percentage.toFixed(1)}% of repositories use it.`);
                 } else if (claimsExpertise && lang.percentage < 30) {
-                    contradictions.push({
-                        type: 'contradiction',
-                        time: this.formatTime(new Date()),
-                        header: 'SKILL EXAGGERATION',
-                        content: `Claims expertise in ${lang.language} but only ${lang.percentage.toFixed(1)}% usage.`
-                    });
-                    this.updateCredibilityScore('skill-contradiction', 'high');
+                    this.addContradiction('skill-contradiction', 'high',
+                        'SKILL EXAGGERATION',
+                        `Claims expertise in ${lang.language} but only ${lang.percentage.toFixed(1)}% usage.`);
                 }
             });
         }
@@ -1571,26 +1586,18 @@ export class AssistantView extends LitElement {
         
         if (hasProductionClaim) {
             if (github.activity.totalStars < 10 && github.userInfo.publicRepos < 5) {
-                contradictions.push({
-                    type: 'warning',
-                    time: this.formatTime(new Date()),
-                    header: 'SCALE CLAIM QUESTIONABLE',
-                    content: 'Claims production/scale experience but low community recognition and few repos.'
-                });
-                this.updateCredibilityScore('false-claim', 'medium');
+                this.addContradiction('false-claim', 'medium',
+                    'SCALE CLAIM QUESTIONABLE',
+                    'Claims production/scale experience but low community recognition and few repos.');
             }
         }
         
         // Check for technical inaccuracies
         const technicalErrors = this.detectTechnicalErrors(response);
         technicalErrors.forEach(error => {
-            contradictions.push({
-                type: 'contradiction',
-                time: this.formatTime(new Date()),
-                header: 'TECHNICAL ERROR',
-                content: error
-            });
-            this.updateCredibilityScore('technical-error', 'medium');
+            this.addContradiction('technical-error', 'medium',
+                'TECHNICAL ERROR',
+                error);
         });
         
         // Check for vague or evasive answers
@@ -1601,13 +1608,9 @@ export class AssistantView extends LitElement {
         const vagueCount = vaguePatterns.filter(pattern => lowerResponse.includes(pattern)).length;
         
         if (vagueCount > 2 && response.length < 100) {
-            contradictions.push({
-                type: 'warning',
-                time: this.formatTime(new Date()),
-                header: 'VAGUE RESPONSE',
-                content: 'Response contains multiple uncertainty indicators and lacks detail.'
-            });
-            this.updateCredibilityScore('vague-answer', 'low');
+            this.addContradiction('vague-answer', 'low',
+                'VAGUE RESPONSE',
+                'Response contains multiple uncertainty indicators and lacks detail.');
         }
         
         // Positive indicators
@@ -1618,22 +1621,9 @@ export class AssistantView extends LitElement {
         if (lowerResponse.includes("i don't know") || lowerResponse.includes("i'm not familiar")) {
             this.updateCredibilityScore('admits-uncertainty', 'low');
         }
-        
-        // Add contradictions to live insights
-        contradictions.forEach(contradiction => {
-            this.liveInsights.unshift(contradiction);
-        });
-        
-        if (this.liveInsights.length > 15) {
-            this.liveInsights = this.liveInsights.slice(0, 15);
-        }
-        
-        // Trigger UI update if credibility changed significantly
-        this.requestUpdate();
     }
 
     checkResumeContradictions(response, resume) {
-        const contradictions = [];
         
         // Check skills mentioned vs resume skills
         if (resume.skills?.all?.length > 0) {
@@ -1643,13 +1633,9 @@ export class AssistantView extends LitElement {
             const commonSkills = ['react', 'angular', 'vue', 'node', 'python', 'java', 'javascript', 'typescript'];
             commonSkills.forEach(skill => {
                 if (response.toLowerCase().includes(skill) && !resumeSkills.some(rSkill => rSkill.includes(skill))) {
-                    contradictions.push({
-                        type: 'warning',
-                        time: this.formatTime(new Date()),
-                        header: 'SKILL NOT IN RESUME',
-                        content: `Mentions ${skill} experience but it's not listed in their resume skills.`
-                    });
-                    this.updateCredibilityScore('resume-mismatch', 'medium');
+                    this.addContradiction('resume-mismatch', 'medium',
+                        'SKILL NOT IN RESUME',
+                        `Mentions ${skill} experience but it's not listed in their resume skills.`);
                 }
             });
         }
@@ -1659,14 +1645,9 @@ export class AssistantView extends LitElement {
             const resumeLevel = resume.summary.estimatedExperienceLevel.toLowerCase();
             
             if ((response.includes('senior') || response.includes('lead')) && resumeLevel === 'junior') {
-                contradictions.push({
-                    type: 'contradiction',
-                    time: this.formatTime(new Date()),
-                    header: 'EXPERIENCE LEVEL MISMATCH',
-                    content: `Claims senior role but resume indicates ${resume.summary.estimatedExperienceLevel} level experience.`
-                });
-                this.inconsistenciesCount++;
-                this.updateCredibilityScore('resume-mismatch', 'high');
+                this.addContradiction('resume-mismatch', 'high',
+                    'EXPERIENCE LEVEL MISMATCH',
+                    `Claims senior role but resume indicates ${resume.summary.estimatedExperienceLevel} level experience.`);
             }
         }
         
@@ -1824,9 +1805,13 @@ export class AssistantView extends LitElement {
             'exaggeration': -8,
             'vague-answer': -5,
             'defensive-behavior': -7,
+            'sensitive-claim': -3,
+            'achievement-inflation': -12,
+            'location-mismatch': -8,
             'consistent-answer': +3,
             'detailed-explanation': +2,
-            'admits-uncertainty': +1
+            'admits-uncertainty': +1,
+            'verifiable-claim': +2
         };
 
         const baseAdjustment = baseAdjustments[contradictionType] || -10;
@@ -1957,6 +1942,451 @@ export class AssistantView extends LitElement {
         return errors;
     }
 
+    verifyAllClaims(response) {
+        const resume = this.candidateData?.resume?.parsedData;
+        const github = this.candidateData?.analysis?.github;
+        const lowerResponse = response.toLowerCase();
+        
+        // Experience years verification
+        this.verifyExperienceYears(response, resume);
+        
+        // Company claims verification
+        this.verifyCompanyClaims(response, resume);
+        
+        // Education claims verification
+        this.verifyEducationClaims(response, resume);
+        
+        // Skill level claims verification
+        this.verifySkillClaims(response, resume, github);
+        
+        // Project claims verification
+        this.verifyProjectClaims(response, resume, github);
+        
+        // Role/title claims verification
+        this.verifyRoleClaims(response, resume);
+        
+        // Salary/compensation claims verification
+        this.verifySalaryClaims(response, resume);
+        
+        // Location claims verification
+        this.verifyLocationClaims(response, resume);
+        
+        // Achievement claims verification
+        this.verifyAchievementClaims(response, resume, github);
+        
+        // Generate verification summary
+        this.generateVerificationSummary(response);
+    }
+
+    verifyExperienceYears(response, resume) {
+        // Extract years of experience claims
+        const yearPatterns = [
+            /(\d+)\s*years?\s*of\s*experience/gi,
+            /(\d+)\s*years?\s*in\s*\w+/gi,
+            /experience\s*of\s*(\d+)\s*years?/gi,
+            /been\s*working\s*for\s*(\d+)\s*years?/gi
+        ];
+
+        yearPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                const claimedYears = parseInt(match[1]);
+                
+                if (resume?.experience?.length > 0) {
+                    // Calculate actual experience from resume
+                    const actualYears = this.calculateActualExperience(resume.experience);
+                    
+                    if (claimedYears > actualYears + 1) { // Allow 1 year buffer
+                        this.addContradiction('experience-mismatch', 'high', 
+                            'EXPERIENCE YEARS MISMATCH', 
+                            `Claims ${claimedYears} years but resume shows ~${actualYears} years`);
+                    }
+                }
+            }
+        });
+    }
+
+    verifyCompanyClaims(response, resume) {
+        if (!resume?.experience) return;
+        
+        const resumeCompanies = resume.experience.map(exp => exp.company?.toLowerCase()).filter(Boolean);
+        
+        // Common company claim patterns
+        const companyPatterns = [
+            /(?:work|working|worked|employed)\s*(?:at|for|with)\s*([A-Z][a-zA-Z\s&]+)/gi,
+            /(?:i(?:'m|am)|currently)\s*(?:at|with)\s*([A-Z][a-zA-Z\s&]+)/gi,
+            /my\s*(?:current|previous)\s*company\s*(?:is|was)\s*([A-Z][a-zA-Z\s&]+)/gi
+        ];
+
+        companyPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                const claimedCompany = match[1].trim().toLowerCase();
+                
+                // Skip common words that aren't company names
+                const skipWords = ['the', 'a', 'an', 'my', 'our', 'this', 'that', 'good', 'great', 'big', 'small'];
+                if (skipWords.includes(claimedCompany)) continue;
+                
+                const isInResume = resumeCompanies.some(company => 
+                    company.includes(claimedCompany) || claimedCompany.includes(company)
+                );
+                
+                if (!isInResume && claimedCompany.length > 3) {
+                    this.addContradiction('false-claim', 'critical',
+                        'COMPANY CLAIM UNVERIFIED',
+                        `Claims working at "${match[1]}" but not found in resume employment history`);
+                }
+            }
+        });
+    }
+
+    verifyEducationClaims(response, resume) {
+        if (!resume?.education) return;
+        
+        const resumeInstitutions = resume.education.map(edu => edu.institution?.toLowerCase()).filter(Boolean);
+        const resumeDegrees = resume.education.map(edu => edu.degree?.toLowerCase()).filter(Boolean);
+        
+        // University/college claims
+        const eduPatterns = [
+            /(?:graduated|studied|degree)\s*(?:from|at)\s*([A-Z][a-zA-Z\s&]+(?:University|College|Institute))/gi,
+            /(?:my|i)\s*(?:went to|attended)\s*([A-Z][a-zA-Z\s&]+(?:University|College|Institute))/gi,
+            /(?:bachelor|master|phd|doctorate)\s*(?:from|at)\s*([A-Z][a-zA-Z\s&]+)/gi
+        ];
+
+        eduPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                const claimedInstitution = match[1].trim().toLowerCase();
+                
+                const isInResume = resumeInstitutions.some(inst => 
+                    inst.includes(claimedInstitution) || claimedInstitution.includes(inst)
+                );
+                
+                if (!isInResume) {
+                    this.addContradiction('resume-mismatch', 'high',
+                        'EDUCATION CLAIM UNVERIFIED',
+                        `Claims education from "${match[1]}" but not found in resume`);
+                }
+            }
+        });
+
+        // GPA/CGPA claims
+        const gpaPatterns = [
+            /(?:gpa|cgpa)\s*(?:of|is|was)?\s*(\d+\.?\d*)/gi,
+            /(\d+\.?\d*)\s*(?:gpa|cgpa)/gi
+        ];
+
+        gpaPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                const claimedGPA = match[1];
+                
+                const hasGPAInResume = resume.education.some(edu => 
+                    edu.cgpa || edu.gpa || (edu.field && edu.field.toLowerCase().includes('gpa'))
+                );
+                
+                if (!hasGPAInResume) {
+                    this.addContradiction('resume-mismatch', 'medium',
+                        'GPA CLAIM UNVERIFIED',
+                        `Claims GPA of ${claimedGPA} but not mentioned in resume`);
+                }
+            }
+        });
+    }
+
+    verifySkillClaims(response, resume, github) {
+        const skillPatterns = [
+            /(?:expert|proficient|experienced|skilled)\s*(?:in|with|at)\s*([A-Za-z+#\.]+)/gi,
+            /(\d+)\s*years?\s*(?:of|with)\s*([A-Za-z+#\.]+)/gi,
+            /(?:i\s*know|i\s*use|i\s*work\s*with)\s*([A-Za-z+#\.]+)/gi
+        ];
+
+        skillPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                const claimedSkill = match[match.length - 1].trim().toLowerCase();
+                
+                // Skip common words
+                if (claimedSkill.length < 3 || ['the', 'and', 'for', 'with'].includes(claimedSkill)) return;
+                
+                let foundInResume = false;
+                let foundInGitHub = false;
+                
+                // Check resume skills
+                if (resume?.skills?.all) {
+                    foundInResume = resume.skills.all.some(skill => 
+                        skill.toLowerCase().includes(claimedSkill) || claimedSkill.includes(skill.toLowerCase())
+                    );
+                }
+                
+                // Check GitHub languages
+                if (github?.languageStats) {
+                    foundInGitHub = github.languageStats.some(lang => 
+                        lang.language.toLowerCase().includes(claimedSkill) || claimedSkill.includes(lang.language.toLowerCase())
+                    );
+                }
+                
+                if (!foundInResume && !foundInGitHub) {
+                    this.addContradiction('skill-contradiction', 'medium',
+                        'SKILL CLAIM UNVERIFIED',
+                        `Claims expertise in "${claimedSkill}" but not found in resume or GitHub`);
+                }
+            }
+        });
+    }
+
+    verifyProjectClaims(response, resume, github) {
+        // Extract project mentions
+        const projectPatterns = [
+            /(?:built|created|developed|worked on)\s*(?:a|an)?\s*([A-Za-z\s]+)(?:project|application|system|platform)/gi,
+            /my\s*([A-Za-z\s]+)(?:project|app|application)/gi
+        ];
+
+        projectPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                const claimedProject = match[1].trim();
+                
+                if (claimedProject.length < 3) return;
+                
+                let foundInResume = false;
+                let foundInGitHub = false;
+                
+                // Check resume projects
+                if (resume?.projects) {
+                    foundInResume = resume.projects.some(project => 
+                        project.name?.toLowerCase().includes(claimedProject.toLowerCase())
+                    );
+                }
+                
+                // Check GitHub repositories
+                if (github?.repositories) {
+                    foundInGitHub = github.repositories.some(repo => 
+                        repo.name?.toLowerCase().includes(claimedProject.toLowerCase()) ||
+                        repo.description?.toLowerCase().includes(claimedProject.toLowerCase())
+                    );
+                }
+                
+                if (!foundInResume && !foundInGitHub) {
+                    this.addContradiction('false-claim', 'medium',
+                        'PROJECT CLAIM UNVERIFIED',
+                        `Mentions "${claimedProject}" project but not found in resume or GitHub`);
+                }
+            }
+        });
+    }
+
+    verifyRoleClaims(response, resume) {
+        if (!resume?.experience) return;
+        
+        const resumeRoles = resume.experience.map(exp => exp.title?.toLowerCase()).filter(Boolean);
+        
+        // Role claim patterns
+        const rolePatterns = [
+            /(?:i(?:'m|am)|currently)\s*(?:a|an)?\s*(senior|lead|principal|staff|junior|software engineer|developer|architect|manager|director)/gi,
+            /my\s*(?:current|previous)\s*role\s*(?:is|was)\s*([\w\s]+)/gi,
+            /(?:worked|working)\s*as\s*(?:a|an)?\s*([\w\s]+)/gi
+        ];
+
+        rolePatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                const claimedRole = match[1].trim().toLowerCase();
+                
+                const isInResume = resumeRoles.some(role => 
+                    role.includes(claimedRole) || claimedRole.includes(role)
+                );
+                
+                if (!isInResume && claimedRole.length > 3) {
+                    this.addContradiction('resume-mismatch', 'high',
+                        'ROLE CLAIM MISMATCH',
+                        `Claims role "${match[1]}" but not found in resume job titles`);
+                }
+            }
+        });
+    }
+
+    calculateActualExperience(experiences) {
+        if (!experiences || experiences.length === 0) return 0;
+        
+        let totalMonths = 0;
+        const currentYear = new Date().getFullYear();
+        
+        experiences.forEach(exp => {
+            if (exp.duration) {
+                // Try to parse duration strings like "Jan 2020 - Present", "2020-2023", etc.
+                const duration = exp.duration.toLowerCase();
+                
+                if (duration.includes('present') || duration.includes('current')) {
+                    // Extract start year
+                    const startMatch = duration.match(/(\d{4})/);
+                    if (startMatch) {
+                        const startYear = parseInt(startMatch[1]);
+                        totalMonths += (currentYear - startYear) * 12;
+                    }
+                } else {
+                    // Try to extract year range
+                    const yearMatches = duration.match(/(\d{4})/g);
+                    if (yearMatches && yearMatches.length >= 2) {
+                        const startYear = parseInt(yearMatches[0]);
+                        const endYear = parseInt(yearMatches[yearMatches.length - 1]);
+                        totalMonths += (endYear - startYear) * 12;
+                    }
+                }
+            }
+        });
+        
+        return Math.round(totalMonths / 12);
+    }
+
+    addContradiction(type, severity, header, content) {
+        // Create a unique key for this contradiction to prevent duplicates
+        const contradictionKey = `${type}-${header}-${content.substring(0, 50)}`;
+        
+        // Check if this contradiction has already been flagged
+        if (this.flaggedContradictions.has(contradictionKey)) {
+            console.log('Duplicate contradiction prevented:', header);
+            return; // Don't add duplicate contradictions
+        }
+        
+        // Mark this contradiction as flagged
+        this.flaggedContradictions.add(contradictionKey);
+        
+        const contradiction = {
+            type: 'contradiction',
+            time: this.formatTime(new Date()),
+            header: header,
+            content: content
+        };
+        
+        this.liveInsights.unshift(contradiction);
+        this.inconsistenciesCount++;
+        
+        // Update credibility score immediately (only once per unique contradiction)
+        this.updateCredibilityScore(type, severity);
+        
+        // Trigger UI update
+        this.requestUpdate();
+        
+        // Keep insights manageable
+        if (this.liveInsights.length > 20) {
+            this.liveInsights = this.liveInsights.slice(0, 20);
+        }
+        
+        console.log(`New contradiction flagged: ${header} (${type}, ${severity})`);
+    }
+
+    resetContradictionTracking() {
+        // Reset contradiction tracking (useful for debugging or manual reset)
+        this.flaggedContradictions = new Set();
+        console.log('Contradiction tracking reset');
+    }
+
+    verifySalaryClaims(response, resume) {
+        // Check for salary/compensation claims
+        const salaryPatterns = [
+            /(\$?\d+k?)\s*(?:salary|compensation|package|ctc)/gi,
+            /making\s*(\$?\d+k?)/gi,
+            /earning\s*(\$?\d+k?)/gi
+        ];
+
+        salaryPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                // Flag salary discussions as potentially sensitive
+                this.addContradiction('sensitive-claim', 'low',
+                    'SALARY CLAIM NOTED',
+                    `Candidate discussed compensation: "${match[1]}" - verify appropriateness`);
+            }
+        });
+    }
+
+    verifyLocationClaims(response, resume) {
+        if (!resume?.personalInfo?.location) return;
+        
+        const resumeLocation = resume.personalInfo.location.toLowerCase();
+        
+        const locationPatterns = [
+            /(?:i(?:'m|am)|currently)\s*(?:in|at|from)\s*([A-Za-z\s,]+)/gi,
+            /(?:based|located)\s*(?:in|at)\s*([A-Za-z\s,]+)/gi,
+            /(?:live|living)\s*(?:in|at)\s*([A-Za-z\s,]+)/gi
+        ];
+
+        locationPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                const claimedLocation = match[1].trim().toLowerCase();
+                
+                if (claimedLocation.length > 3 && !resumeLocation.includes(claimedLocation) && !claimedLocation.includes(resumeLocation)) {
+                    this.addContradiction('resume-mismatch', 'medium',
+                        'LOCATION MISMATCH',
+                        `Claims location "${match[1]}" but resume shows "${resume.personalInfo.location}"`);
+                }
+            }
+        });
+    }
+
+    verifyAchievementClaims(response, resume, github) {
+        const achievementPatterns = [
+            /(?:led|managed|built)\s*(?:a\s*)?team\s*of\s*(\d+)/gi,
+            /(?:increased|improved|optimized)\s*(?:performance|efficiency|sales)\s*by\s*(\d+%?)/gi,
+            /(?:managed|handled)\s*(\$?\d+[kmb]?)\s*(?:budget|revenue|sales)/gi,
+            /(?:scaled|grew)\s*(?:to|from)\s*(\d+[kmb]?)\s*(?:users|customers|requests)/gi
+        ];
+
+        achievementPatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(response)) !== null) {
+                // Check if achievements align with role level
+                const claimedMetric = match[1];
+                const isHighImpact = parseInt(claimedMetric.replace(/[^\d]/g, '')) > 100;
+                
+                if (isHighImpact) {
+                    // Check if role level supports such claims
+                    const hasManagerialRole = resume?.experience?.some(exp => 
+                        exp.title?.toLowerCase().includes('manager') || 
+                        exp.title?.toLowerCase().includes('lead') ||
+                        exp.title?.toLowerCase().includes('director')
+                    );
+                    
+                    if (!hasManagerialRole) {
+                        this.addContradiction('exaggeration', 'medium',
+                            'ACHIEVEMENT CLAIM QUESTIONABLE',
+                            `Claims high-impact achievement (${claimedMetric}) but no managerial roles in resume`);
+                    }
+                }
+            }
+        });
+    }
+
+    generateVerificationSummary(response) {
+        // Count claims made in this response
+        const claimPatterns = [
+            /\d+\s*years?\s*(?:of\s*)?experience/gi,
+            /(?:work|worked|working)\s*(?:at|for)\s*[A-Z]/gi,
+            /(?:expert|proficient)\s*(?:in|with)/gi,
+            /(?:built|created|developed)\s*(?:a|an)?\s*\w+/gi
+        ];
+
+        let totalClaims = 0;
+        claimPatterns.forEach(pattern => {
+            const matches = response.match(pattern);
+            if (matches) totalClaims += matches.length;
+        });
+
+        if (totalClaims > 2) {
+            // Add verification summary to insights
+            const summary = {
+                type: 'info',
+                time: this.formatTime(new Date()),
+                header: 'VERIFICATION SCAN COMPLETE',
+                content: `Analyzed ${totalClaims} claims in response. Check contradictions above for any flags.`
+            };
+            
+            this.liveInsights.unshift(summary);
+        }
+    }
+
     formatTime(date) {
         return date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
@@ -1999,6 +2429,354 @@ export class AssistantView extends LitElement {
         } else {
             return html`<span class="trend-declining">↘ Declining (${Math.round(change)})</span>`;
         }
+    }
+
+    async handleEndInterview() {
+        try {
+            // Confirm interview end
+            const confirmEnd = confirm('Are you sure you want to end the interview? This will generate a report and close the session.');
+            if (!confirmEnd) return;
+
+            // Generate the interview report
+            const report = this.generateInterviewReport();
+            
+            // Show save dialog
+            if (window.require) {
+                const { ipcRenderer } = window.require('electron');
+                const result = await ipcRenderer.invoke('save-interview-report', report);
+                
+                if (result.success) {
+                    // Show success message
+                    this.showEndInterviewSuccess(result.filePath);
+                    
+                    // Wait a moment for user to see the success message
+                    setTimeout(async () => {
+                        // Stop capture and close session
+                        if (window.cheddar) {
+                            window.cheddar.stopCapture();
+                        }
+                        
+                        // Close the session
+                        await ipcRenderer.invoke('close-session');
+                        
+                        // Clear interview data
+                        localStorage.removeItem('interviewStartTime');
+                        
+                        // Notify parent to return to main view
+                        this.dispatchEvent(new CustomEvent('interview-ended', {
+                            bubbles: true,
+                            composed: true
+                        }));
+                    }, 2000);
+                    
+                } else if (result.error !== 'Save canceled by user') {
+                    console.error('Failed to save report:', result.error);
+                    alert('Failed to save interview report: ' + result.error);
+                }
+            }
+        } catch (error) {
+            console.error('Error ending interview:', error);
+            alert('Error generating interview report: ' + error.message);
+        }
+    }
+
+    generateInterviewReport() {
+        const candidateInfo = this.candidateData?.info || {};
+        const resume = this.candidateData?.resume?.parsedData;
+        const github = this.candidateData?.analysis?.github;
+        const now = new Date();
+        
+        let report = `# Interview Report\n\n`;
+        report += `**Generated:** ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}\n\n`;
+        
+        // Candidate Information
+        report += `## 👤 Candidate Information\n\n`;
+        if (candidateInfo.name) report += `**Name:** ${candidateInfo.name}\n`;
+        if (candidateInfo.role) report += `**Position:** ${candidateInfo.role}\n`;
+        if (candidateInfo.email) report += `**Email:** ${candidateInfo.email}\n`;
+        if (resume?.personalInfo?.phone) report += `**Phone:** ${resume.personalInfo.phone}\n`;
+        if (resume?.personalInfo?.location) report += `**Location:** ${resume.personalInfo.location}\n`;
+        if (github) report += `**GitHub:** ${github.userInfo.username}\n`;
+        report += `\n`;
+
+        // Overall Assessment
+        report += `## 📊 Overall Assessment\n\n`;
+        report += `**Final Credibility Score:** ${Math.round(this.credibilityScore)}/100\n`;
+        report += `**Assessment:** ${this.getCredibilityRecommendation()}\n`;
+        report += `**Inconsistencies Detected:** ${this.inconsistenciesCount}\n\n`;
+
+        // Credibility Trend
+        if (this.credibilityHistory && this.credibilityHistory.length > 1) {
+            const startScore = this.credibilityHistory[0].score;
+            const endScore = this.credibilityHistory[this.credibilityHistory.length - 1].score;
+            const change = endScore - startScore;
+            report += `**Credibility Trend:** ${change > 0 ? 'Improved' : change < 0 ? 'Declined' : 'Stable'} (${change > 0 ? '+' : ''}${Math.round(change)} points)\n\n`;
+        }
+
+        // Pros and Cons
+        const analysis = this.analyzeInterviewPerformance();
+        
+        report += `## ✅ Strengths (Pros)\n\n`;
+        analysis.pros.forEach(pro => {
+            report += `- ${pro}\n`;
+        });
+        report += `\n`;
+
+        report += `## ❌ Concerns (Cons)\n\n`;
+        analysis.cons.forEach(con => {
+            report += `- ${con}\n`;
+        });
+        report += `\n`;
+
+        // Contradictions and Issues
+        if (this.liveInsights.length > 0) {
+            report += `## ⚠️ Contradictions & Issues Detected\n\n`;
+            
+            const contradictions = this.liveInsights.filter(insight => 
+                insight.type === 'contradiction' || insight.type === 'warning'
+            );
+            
+            if (contradictions.length > 0) {
+                contradictions.forEach((contradiction, index) => {
+                    report += `### ${index + 1}. ${contradiction.header}\n`;
+                    report += `**Time:** ${contradiction.time}\n`;
+                    report += `**Details:** ${contradiction.content}\n\n`;
+                });
+            } else {
+                report += `No significant contradictions detected during the interview.\n\n`;
+            }
+        }
+
+        // Technical Assessment
+        if (resume?.skills || github?.languageStats) {
+            report += `## 🔧 Technical Assessment\n\n`;
+            
+            if (resume?.skills?.all?.length > 0) {
+                report += `**Resume Skills (${resume.skills.all.length} total):**\n`;
+                const skillCategories = ['programming', 'frameworks', 'databases', 'cloud', 'tools'];
+                skillCategories.forEach(category => {
+                    if (resume.skills[category]?.length > 0) {
+                        report += `- **${category.charAt(0).toUpperCase() + category.slice(1)}:** ${resume.skills[category].join(', ')}\n`;
+                    }
+                });
+                report += `\n`;
+            }
+            
+            if (github?.languageStats?.length > 0) {
+                report += `**GitHub Language Distribution:**\n`;
+                github.languageStats.slice(0, 5).forEach(lang => {
+                    report += `- ${lang.language}: ${lang.percentage.toFixed(1)}%\n`;
+                });
+                report += `\n`;
+            }
+        }
+
+        // Experience Analysis
+        if (resume?.experience?.length > 0) {
+            report += `## 💼 Experience Analysis\n\n`;
+            resume.experience.slice(0, 3).forEach((exp, index) => {
+                report += `### ${index + 1}. ${exp.title || 'Position'}\n`;
+                report += `**Company:** ${exp.company || 'Unknown'}\n`;
+                if (exp.duration) report += `**Duration:** ${exp.duration}\n`;
+                if (exp.current) report += `**Status:** Current Role\n`;
+                if (exp.description?.length > 0) {
+                    report += `**Description:** ${exp.description[0]}\n`;
+                }
+                report += `\n`;
+            });
+        }
+
+        // Recommendations
+        report += `## 💡 Interviewer Recommendations\n\n`;
+        const recommendations = this.generateInterviewRecommendations();
+        recommendations.forEach(rec => {
+            report += `- ${rec}\n`;
+        });
+        report += `\n`;
+
+        // Key AI Responses
+        if (this.responses.length > 0) {
+            report += `## 🤖 Key AI Insights\n\n`;
+            // Include first few responses as examples
+            this.responses.slice(0, 3).forEach((response, index) => {
+                report += `### Response ${index + 1}\n`;
+                report += `${response.substring(0, 300)}${response.length > 300 ? '...' : ''}\n\n`;
+            });
+            
+            if (this.responses.length > 3) {
+                report += `*... and ${this.responses.length - 3} additional AI responses*\n\n`;
+            }
+        }
+
+        // Interview Statistics
+        report += `## 📈 Interview Statistics\n\n`;
+        report += `**Interview Duration:** ${this.getInterviewDuration()}\n`;
+        report += `**Total AI Responses:** ${this.responses.length}\n`;
+        report += `**Live Insights Generated:** ${this.liveInsights.length}\n`;
+        if (this.transcriptMessages.length > 0) {
+            report += `**Transcript Messages:** ${this.transcriptMessages.length}\n`;
+            const candidateMessages = this.transcriptMessages.filter(msg => msg.speaker === 'candidate').length;
+            const interviewerMessages = this.transcriptMessages.filter(msg => msg.speaker === 'interviewer').length;
+            report += `**Candidate Responses:** ${candidateMessages}\n`;
+            report += `**Interviewer Questions:** ${interviewerMessages}\n`;
+        }
+        
+        report += `\n---\n`;
+        report += `*Report generated by TruHire AI Interview Assistant*\n`;
+        report += `*Generated on ${now.toLocaleDateString()} at ${now.toLocaleTimeString()}*\n`;
+
+        return report;
+    }
+
+    analyzeInterviewPerformance() {
+        const pros = [];
+        const cons = [];
+        
+        // Analyze credibility score
+        if (this.credibilityScore >= 80) {
+            pros.push('High credibility score indicates trustworthy responses');
+        } else if (this.credibilityScore < 60) {
+            cons.push('Low credibility score indicates multiple inconsistencies');
+        }
+
+        // Analyze GitHub activity
+        if (this.candidateData?.analysis?.github) {
+            const github = this.candidateData.analysis.github;
+            
+            if (github.activity.recentCommits > 10) {
+                pros.push('Active GitHub contributor with recent commits');
+            } else if (github.activity.recentCommits === 0) {
+                cons.push('No recent GitHub activity despite claiming development experience');
+            }
+            
+            if (github.activity.totalStars > 50) {
+                pros.push('Good community recognition with starred repositories');
+            }
+            
+            if (github.languageStats.length > 4) {
+                pros.push('Diverse programming language experience');
+            }
+        }
+
+        // Analyze resume quality
+        if (this.candidateData?.resume?.parsedData) {
+            const resume = this.candidateData.resume.parsedData;
+            
+            if (resume.skills?.all?.length > 15) {
+                pros.push('Comprehensive technical skill set');
+            } else if (resume.skills?.all?.length < 5) {
+                cons.push('Limited technical skills listed in resume');
+            }
+            
+            if (resume.experience?.length > 3) {
+                pros.push('Substantial work experience history');
+            } else if (resume.experience?.length < 2) {
+                cons.push('Limited professional experience');
+            }
+            
+            if (resume.projects?.length > 2) {
+                pros.push('Good project portfolio demonstrating practical experience');
+            }
+        }
+
+        // Analyze contradictions
+        const contradictionTypes = this.categorizeContradictions();
+        const totalContradictions = Object.values(contradictionTypes).reduce((a, b) => a + b, 0);
+        
+        if (totalContradictions === 0) {
+            pros.push('No contradictions detected - consistent responses throughout');
+        } else if (totalContradictions > 3) {
+            cons.push(`Multiple contradictions detected (${totalContradictions} total)`);
+        }
+
+        // Analyze response quality
+        if (this.responses.length > 0) {
+            const avgResponseLength = this.responses.reduce((sum, resp) => sum + resp.length, 0) / this.responses.length;
+            
+            if (avgResponseLength > 200) {
+                pros.push('Detailed and comprehensive responses');
+            } else if (avgResponseLength < 50) {
+                cons.push('Responses tend to be very brief and lack detail');
+            }
+        }
+
+        // Default items if no specific analysis available
+        if (pros.length === 0) {
+            pros.push('Interview completed successfully');
+        }
+        
+        if (cons.length === 0) {
+            cons.push('No major concerns identified');
+        }
+
+        return { pros, cons };
+    }
+
+    generateInterviewRecommendations() {
+        const recommendations = [];
+        
+        if (this.credibilityScore < 60) {
+            recommendations.push('Consider conducting a follow-up technical assessment');
+            recommendations.push('Verify claimed experience with detailed technical questions');
+        }
+        
+        if (this.inconsistenciesCount > 2) {
+            recommendations.push('Probe deeper into areas where contradictions were detected');
+        }
+        
+        if (this.candidateData?.analysis?.github?.activity.recentCommits === 0) {
+            recommendations.push('Ask about recent projects not reflected in GitHub activity');
+        }
+        
+        if (this.credibilityScore >= 80) {
+            recommendations.push('Strong candidate - consider moving to next interview round');
+        }
+        
+        // Technical recommendations
+        if (this.candidateData?.resume?.parsedData?.skills?.all?.length > 0) {
+            recommendations.push('Focus technical questions on their strongest skill areas');
+        }
+        
+        if (recommendations.length === 0) {
+            recommendations.push('Standard follow-up interview process recommended');
+        }
+        
+        return recommendations;
+    }
+
+    getInterviewDuration() {
+        try {
+            const startTime = localStorage.getItem('interviewStartTime');
+            if (!startTime) return 'Duration unknown';
+            
+            const start = parseInt(startTime);
+            const now = Date.now();
+            const durationMs = now - start;
+            const durationMinutes = Math.floor(durationMs / (1000 * 60));
+            const durationSeconds = Math.floor((durationMs % (1000 * 60)) / 1000);
+            
+            if (durationMinutes > 0) {
+                return `${durationMinutes} minutes, ${durationSeconds} seconds`;
+            } else {
+                return `${durationSeconds} seconds`;
+            }
+        } catch (error) {
+            console.error('Error calculating interview duration:', error);
+            return 'Duration calculation error';
+        }
+    }
+
+    showEndInterviewSuccess(filePath) {
+        // Show a success message with the file path
+        const successInsight = {
+            type: 'success',
+            time: this.formatTime(new Date()),
+            header: 'INTERVIEW REPORT SAVED',
+            content: `Report saved successfully to: ${filePath}`
+        };
+        
+        this.liveInsights.unshift(successInsight);
+        this.requestUpdate();
     }
 
     // Override the existing method to include response analysis
@@ -2663,6 +3441,22 @@ export class AssistantView extends LitElement {
                     </button>
 
                     <input type="text" id="textInput" placeholder="Type a message to the AI..." @keydown=${this.handleTextKeydown} />
+
+                    <button class="end-interview-button" @click=${this.handleEndInterview} title="End Interview & Generate Report">
+                        <?xml version="1.0" encoding="UTF-8"?><svg
+                            width="20px"
+                            height="20px"
+                            stroke-width="1.7"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            color="#ffffff"
+                        >
+                            <path d="M9 12L11 14L15 10" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                        End Interview
+                    </button>
 
                     <button class="nav-button" @click=${this.navigateToNextResponse} ?disabled=${this.currentResponseIndex >= this.responses.length - 1}>
                         <?xml version="1.0" encoding="UTF-8"?><svg

@@ -176,4 +176,42 @@ function setupGeneralIpcHandlers() {
             return { success: false, error: error.message };
         }
     });
+
+    // Interview report saving handler
+    ipcMain.handle('save-interview-report', async (event, reportContent) => {
+        try {
+            const { dialog } = require('electron');
+            const fs = require('fs').promises;
+            const path = require('path');
+            
+            // Generate default filename with timestamp
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const defaultFilename = `Interview_Report_${timestamp}.md`;
+            
+            // Show save dialog
+            const result = await dialog.showSaveDialog(mainWindow, {
+                title: 'Save Interview Report',
+                defaultPath: defaultFilename,
+                filters: [
+                    { name: 'Markdown Files', extensions: ['md'] },
+                    { name: 'Text Files', extensions: ['txt'] },
+                    { name: 'All Files', extensions: ['*'] }
+                ]
+            });
+            
+            if (result.canceled) {
+                return { success: false, error: 'Save canceled by user' };
+            }
+            
+            // Write the report to the selected file
+            await fs.writeFile(result.filePath, reportContent, 'utf8');
+            console.log('Interview report saved to:', result.filePath);
+            
+            return { success: true, filePath: result.filePath };
+            
+        } catch (error) {
+            console.error('Error saving interview report:', error);
+            return { success: false, error: error.message };
+        }
+    });
 }
