@@ -70,11 +70,9 @@ Recruiters face increasing challenges due to fraudulent resumes, inflated claims
 ## Technical Architecture
 
 ```
-[Recruiter UI (Electron + React)]
+[Recruiter UI (Electron + Lit(React))]
         ↕
 [Electron ipcRenderer/ipcMain Channels]
-        ↕
-[Backend Service (Node.js/Python/Other)]
         ↕
 [Google Gemini LLM API]
 ```
