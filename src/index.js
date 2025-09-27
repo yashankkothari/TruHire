@@ -158,10 +158,16 @@ function setupGeneralIpcHandlers() {
     });
 
     // Resume parsing handler
-    ipcMain.handle('parse-resume', async (event, resumeBuffer) => {
+    ipcMain.handle('parse-resume', async (event, resumeBuffer, apiKey) => {
         try {
             console.log('Parsing resume, buffer size:', resumeBuffer.length);
             const resumeParser = new ResumeParser();
+            
+            // Set the API key for AI enhancement if provided
+            if (apiKey) {
+                process.env.GEMINI_API_KEY = apiKey;
+            }
+            
             const resumeData = await resumeParser.parseResume(Buffer.from(resumeBuffer));
             console.log('Resume parsed successfully');
             return { success: true, data: resumeData };

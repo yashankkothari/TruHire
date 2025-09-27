@@ -1,6 +1,7 @@
 const pdfParse = require('pdf-parse');
 const fs = require('fs');
 const path = require('path');
+const { GoogleGenerativeAI } = require('@google/genai');
 
 /**
  * Resume Parser - Extracts structured information from PDF resumes
@@ -89,7 +90,8 @@ class ResumeParser {
             console.log('Extracted PDF text length:', text.length);
             console.log('First 500 characters:', text.substring(0, 500));
 
-            const resumeData = {
+            // First pass: Basic extraction using patterns
+            const basicData = {
                 rawText: text,
                 personalInfo: this.extractPersonalInfo(text),
                 skills: this.extractSkills(text),
@@ -104,8 +106,16 @@ class ResumeParser {
                 }
             };
 
-            console.log('Parsed resume data:', JSON.stringify(resumeData, null, 2));
-            return resumeData;
+            // Second pass: AI-enhanced context understanding
+            try {
+                const enhancedData = await this.enhanceWithAI(text, basicData);
+                console.log('AI-enhanced resume data:', JSON.stringify(enhancedData, null, 2));
+                return enhancedData;
+            } catch (aiError) {
+                console.warn('AI enhancement failed, using basic parsing:', aiError.message);
+                console.log('Basic parsed resume data:', JSON.stringify(basicData, null, 2));
+                return basicData;
+            }
 
         } catch (error) {
             console.error('Error parsing resume:', error);
@@ -559,6 +569,222 @@ class ResumeParser {
         } else {
             return 'Mid-Level';
         }
+    }
+
+    /**
+     * Enhance resume parsing with AI context understanding
+     */
+    async enhanceWithAI(resumeText, basicData) {
+        try {
+            // Get API key from environment or localStorage (if available)
+            const apiKey = process.env.GEMINI_API_KEY || global.localStorage?.getItem('apiKey');
+            if (!apiKey) {
+                throw new Error('No Gemini API key available for AI enhancement');
+            }
+
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+
+            const prompt = `
+You are an expert resume parser. Please analyze this resume text and extract structured information with proper context understanding.
+
+IMPORTANT RULES:
+1. Distinguish clearly between EDUCATION (universities, colleges, degrees) and WORK EXPERIENCE (companies, jobs)
+2. For education: Extract college/university names, degrees, CGPA/GPA if mentioned, graduation years
+3. For work experience: Extract company names, job titles, employment duration, and distinguish current vs previous roles
+4. For skills: Categorize properly into programming languages, frameworks, databases, tools, etc.
+5. Extract personal information accurately
+
+Resume Text:
+${resumeText}
+
+Please return a JSON object with this exact structure:
+{
+  "personalInfo": {
+    "name": "Full Name",
+    "email": "email@example.com",
+    "phone": "phone number",
+    "location": "city, state/country",
+    "linkedin": "linkedin profile",
+    "github": "github profile"
+  },
+  "education": [
+    {
+      "degree": "Degree Name",
+      "institution": "University/College Name", 
+      "year": "Graduation Year",
+      "cgpa": "CGPA/GPA if mentioned",
+      "field": "Field of study"
+    }
+  ],
+  "experience": [
+    {
+      "title": "Job Title",
+      "company": "Company Name",
+      "duration": "Duration (e.g., Jan 2020 - Present)",
+      "current": true/false,
+      "description": ["Key responsibility 1", "Key responsibility 2"]
+    }
+  ],
+  "skills": {
+    "programming": ["language1", "language2"],
+    "frameworks": ["framework1", "framework2"],
+    "databases": ["db1", "db2"],
+    "cloud": ["cloud1", "cloud2"],
+    "tools": ["tool1", "tool2"],
+    "other": ["other skills"]
+  },
+  "projects": [
+    {
+      "name": "Project Name",
+      "description": ["Project description"],
+      "technologies": ["tech1", "tech2"]
+    }
+  ]
+}
+
+Return ONLY the JSON object, no additional text.`;
+
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+
+            // Parse the AI response
+            let aiData;
+            try {
+                // Clean the response text to extract JSON
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    aiData = JSON.parse(jsonMatch[0]);
+                } else {
+                    throw new Error('No JSON found in AI response');
+                }
+            } catch (parseError) {
+                console.warn('Failed to parse AI response as JSON:', parseError);
+                throw new Error('Invalid JSON response from AI');
+            }
+
+            // Merge AI data with basic data, prioritizing AI results but falling back to basic parsing
+            const enhancedData = {
+                rawText: basicData.rawText,
+                personalInfo: {
+                    ...basicData.personalInfo,
+                    ...aiData.personalInfo
+                },
+                education: aiData.education && aiData.education.length > 0 ? aiData.education : basicData.education,
+                experience: aiData.experience && aiData.experience.length > 0 ? aiData.experience : basicData.experience,
+                skills: {
+                    ...basicData.skills,
+                    ...aiData.skills,
+                    // Ensure all skill arrays exist
+                    programming: aiData.skills?.programming || basicData.skills.programming || [],
+                    frameworks: aiData.skills?.frameworks || basicData.skills.frameworks || [],
+                    databases: aiData.skills?.databases || basicData.skills.databases || [],
+                    cloud: aiData.skills?.cloud || basicData.skills.cloud || [],
+                    tools: aiData.skills?.tools || basicData.skills.tools || [],
+                    other: aiData.skills?.other || basicData.skills.other || [],
+                    all: []
+                },
+                projects: aiData.projects && aiData.projects.length > 0 ? aiData.projects : basicData.projects,
+                summary: this.generateEnhancedSummary(aiData, basicData),
+                metadata: {
+                    ...basicData.metadata,
+                    aiEnhanced: true,
+                    aiEnhancedAt: new Date().toISOString()
+                }
+            };
+
+            // Rebuild the 'all' skills array
+            enhancedData.skills.all = [
+                ...(enhancedData.skills.programming || []),
+                ...(enhancedData.skills.frameworks || []),
+                ...(enhancedData.skills.databases || []),
+                ...(enhancedData.skills.cloud || []),
+                ...(enhancedData.skills.tools || []),
+                ...(enhancedData.skills.other || [])
+            ];
+
+            return enhancedData;
+
+        } catch (error) {
+            console.error('AI enhancement error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Generate enhanced summary using AI-parsed data
+     */
+    generateEnhancedSummary(aiData, basicData) {
+        const summary = basicData.summary || {};
+        
+        // Determine experience level based on work history
+        let experienceLevel = 'Entry Level';
+        if (aiData.experience && aiData.experience.length > 0) {
+            const totalExperience = aiData.experience.length;
+            const hasManagerialRole = aiData.experience.some(exp => 
+                exp.title && (exp.title.toLowerCase().includes('manager') || 
+                             exp.title.toLowerCase().includes('lead') || 
+                             exp.title.toLowerCase().includes('director'))
+            );
+            const hasSeniorRole = aiData.experience.some(exp => 
+                exp.title && exp.title.toLowerCase().includes('senior')
+            );
+
+            if (hasManagerialRole) {
+                experienceLevel = 'Management';
+            } else if (hasSeniorRole || totalExperience >= 5) {
+                experienceLevel = 'Senior';
+            } else if (totalExperience >= 2) {
+                experienceLevel = 'Mid-Level';
+            } else {
+                experienceLevel = 'Junior';
+            }
+        }
+
+        // Extract key strengths from skills and experience
+        const keyStrengths = [];
+        if (aiData.skills?.programming?.length > 0) {
+            keyStrengths.push('Programming');
+        }
+        if (aiData.skills?.frameworks?.length > 0) {
+            keyStrengths.push('Framework Development');
+        }
+        if (aiData.skills?.cloud?.length > 0) {
+            keyStrengths.push('Cloud Technologies');
+        }
+        if (aiData.experience?.some(exp => exp.title?.toLowerCase().includes('full stack'))) {
+            keyStrengths.push('Full Stack Development');
+        }
+
+        // Determine primary domains
+        const primaryDomains = [];
+        const skillsText = JSON.stringify(aiData.skills || {}).toLowerCase();
+        const experienceText = JSON.stringify(aiData.experience || {}).toLowerCase();
+        
+        if (skillsText.includes('react') || skillsText.includes('angular') || skillsText.includes('vue')) {
+            primaryDomains.push('Frontend Development');
+        }
+        if (skillsText.includes('node') || skillsText.includes('express') || skillsText.includes('django')) {
+            primaryDomains.push('Backend Development');
+        }
+        if (skillsText.includes('aws') || skillsText.includes('azure') || skillsText.includes('gcp')) {
+            primaryDomains.push('Cloud Computing');
+        }
+        if (skillsText.includes('python') && (skillsText.includes('pandas') || skillsText.includes('tensorflow'))) {
+            primaryDomains.push('Data Science');
+        }
+
+        return {
+            ...summary,
+            estimatedExperienceLevel: experienceLevel,
+            keyStrengths: keyStrengths.slice(0, 5),
+            primaryDomains: primaryDomains.slice(0, 3),
+            hasWorkExperience: aiData.experience && aiData.experience.length > 0,
+            hasEducation: aiData.education && aiData.education.length > 0,
+            hasContactInfo: !!(aiData.personalInfo?.email || aiData.personalInfo?.phone),
+            totalSkills: aiData.skills ? Object.values(aiData.skills).flat().length : 0
+        };
     }
 }
 

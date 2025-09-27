@@ -395,9 +395,10 @@ export class CandidateSetupView extends LitElement {
                     const arrayBuffer = await this.resumeFile.arrayBuffer();
                     const uint8Array = new Uint8Array(arrayBuffer);
                     
-                    // Send to main process for parsing
+                    // Send to main process for parsing with API key for AI enhancement
                     const { ipcRenderer } = window.require('electron');
-                    const parseResult = await ipcRenderer.invoke('parse-resume', uint8Array);
+                    const apiKey = localStorage.getItem('apiKey');
+                    const parseResult = await ipcRenderer.invoke('parse-resume', uint8Array, apiKey);
                     
                     if (parseResult.success) {
                         console.log('Resume parsed successfully:', parseResult.data);

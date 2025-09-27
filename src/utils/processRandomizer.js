@@ -7,15 +7,15 @@ const { getCurrentRandomName, getCurrentRandomDisplayName, generateRandomWindowT
  * This should be called early in the application startup
  */
 function initializeRandomProcessNames() {
-    console.log('Initializing random process names for stealth...');
+    // console.log('Initializing random process names for stealth...');
 
     const randomName = getCurrentRandomName();
     const randomDisplayName = getCurrentRandomDisplayName();
     const windowTitle = generateRandomWindowTitle();
 
-    console.log(`Process name: ${randomName}`);
-    console.log(`Display name: ${randomDisplayName}`);
-    console.log(`Window title: ${windowTitle}`);
+    // console.log(`Process name: ${randomName}`);
+    // console.log(`Display name: ${randomDisplayName}`);
+    // console.log(`Window title: ${windowTitle}`);
 
     // Set process title to appear as a different process in task manager
     setRandomProcessTitle();
@@ -35,10 +35,10 @@ function setRandomProcessTitle() {
     try {
         const randomProcessName = getCurrentRandomName();
         process.title = randomProcessName;
-        console.log(`Set process title to: ${randomProcessName}`);
+        // console.log(`Set process title to: ${randomProcessName}`);
         return randomProcessName;
     } catch (error) {
-        console.warn('Could not set process title:', error.message);
+        // console.warn('Could not set process title:', error.message);
         return null;
     }
 }
