@@ -6,8 +6,10 @@ export class AssistantView extends LitElement {
             height: 100%;
             display: flex;
             flex-direction: row;
-            gap: 12px;
-            min-width: 1400px;
+            gap: 6px;
+            min-width: 100%;
+            width: 100%;
+            overflow-x: auto;
         }
 
         * {
@@ -16,9 +18,9 @@ export class AssistantView extends LitElement {
         }
 
         .transcript-panel {
-            width: var(--transcript-width, 300px);
-            min-width: 250px;
-            max-width: 50vw;
+            width: var(--transcript-width, 280px);
+            min-width: 220px;
+            max-width: 25vw;
             background: var(--main-content-background);
             border-radius: 10px;
             border: 1px solid var(--border-color);
@@ -30,21 +32,21 @@ export class AssistantView extends LitElement {
         }
 
         .main-panel {
-            flex: 1;
+            flex: 2;
             display: flex;
             flex-direction: column;
-            min-width: 300px;
+            min-width: 350px;
             background: var(--main-content-background);
             border-radius: 10px;
             border: 1px solid var(--border-color);
-            margin: 0 10px;
+            margin: 0 6px;
             overflow: hidden;
         }
 
         .analysis-panel {
-            width: var(--analysis-width, 350px);
-            min-width: 280px;
-            max-width: 35vw;
+            width: var(--analysis-width, 320px);
+            min-width: 250px;
+            max-width: 25vw;
             background: var(--main-content-background);
             border-radius: 10px;
             border: 1px solid var(--border-color);
@@ -56,9 +58,9 @@ export class AssistantView extends LitElement {
         }
 
         .resume-highlights-panel {
-            width: var(--resume-highlights-width, 300px);
-            min-width: 250px;
-            max-width: 30vw;
+            width: var(--resume-highlights-width, 280px);
+            min-width: 220px;
+            max-width: 22vw;
             background: var(--main-content-background);
             border-radius: 10px;
             border: 1px solid var(--border-color);
@@ -67,6 +69,20 @@ export class AssistantView extends LitElement {
             overflow: hidden;
             resize: horizontal;
             position: relative;
+        }
+
+        .interview-questions-panel {
+            width: var(--interview-questions-width, 280px);
+            min-width: 280px;
+            max-width: 350px;
+            background: var(--main-content-background);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            flex-shrink: 0;
         }
 
         .resize-handle {
@@ -1058,6 +1074,184 @@ export class AssistantView extends LitElement {
             font-weight: 500;
             margin-top: 4px;
         }
+
+        /* Interview Questions Panel Styles */
+        .questions-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .question-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: var(--hover-background);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+
+        .question-item:hover {
+            background: var(--focus-box-shadow);
+        }
+
+        .question-item.completed {
+            opacity: 0.6;
+            background: var(--success-background, rgba(34, 197, 94, 0.1));
+        }
+
+        .question-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+
+        .question-checkbox:hover {
+            border-color: var(--focus-border-color);
+        }
+
+        .question-checkbox.checked {
+            background: var(--focus-border-color);
+            border-color: var(--focus-border-color);
+        }
+
+        .question-checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .question-content {
+            flex: 1;
+        }
+
+        .question-text {
+            font-size: 14px;
+            line-height: 1.4;
+            color: var(--text-color);
+            margin-bottom: 6px;
+        }
+
+        .question-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .question-tag {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 12px;
+            background: var(--button-background);
+            color: var(--placeholder-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .question-tag.technical {
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .question-tag.behavioral {
+            background: rgba(168, 85, 247, 0.1);
+            color: #a78bfa;
+            border-color: rgba(168, 85, 247, 0.3);
+        }
+
+        .question-tag.system-design {
+            background: rgba(245, 158, 11, 0.1);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .question-tag.practical {
+            background: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .questions-loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            padding: 40px 20px;
+            color: var(--placeholder-color);
+        }
+
+        .questions-error {
+            padding: 20px;
+            text-align: center;
+            color: #f87171;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            margin: 16px;
+        }
+
+        .questions-empty {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--placeholder-color);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .regenerate-button {
+            background: var(--button-background);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .regenerate-button:hover {
+            background: var(--hover-background);
+            border-color: var(--focus-border-color);
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--panel-header-background);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-shrink: 0;
+        }
     `;
 
     static properties = {
@@ -1080,6 +1274,10 @@ export class AssistantView extends LitElement {
         availableMicrophones: { type: Array },
         selectedMicrophoneId: { type: String },
         resumeHighlightsWidth: { type: Number },
+        interviewQuestionsWidth: { type: Number },
+        interviewQuestions: { type: Array },
+        questionsLoading: { type: Boolean },
+        questionsError: { type: String },
     };
 
     constructor() {
@@ -1111,15 +1309,22 @@ export class AssistantView extends LitElement {
         this.speakerDiarization = true;
         
         // Initialize panel sizes
-        this.transcriptWidth = 300;
-        this.analysisWidth = 350;
-        this.resumeHighlightsWidth = 300;
+        this.transcriptWidth = 280;
+        this.analysisWidth = 320;
+        this.resumeHighlightsWidth = 280;
+        this.interviewQuestionsWidth = 280;
+        this.interviewQuestions = [];
+        this.questionsLoading = false;
+        this.questionsError = '';
         this.showMicSettings = false;
         this.availableMicrophones = [];
         this.selectedMicrophoneId = localStorage.getItem('selectedMicrophoneId') || 'default';
         
         // Load candidate data if available
         this.loadCandidateData();
+        
+        // Load existing interview questions
+        this.loadInterviewQuestions();
         
         // Set up audio transcription listeners
         this.setupTranscriptionListeners();
@@ -1427,6 +1632,11 @@ export class AssistantView extends LitElement {
                 
                 // Initialize with some baseline insights
                 this.initializeBaselineInsights();
+                
+                // Generate questions if they don't exist
+                if (this.interviewQuestions.length === 0 && !this.questionsLoading) {
+                    setTimeout(() => this.generateInterviewQuestions(), 500);
+                }
             }
         } catch (error) {
             console.error('Error loading candidate data:', error);
@@ -2711,6 +2921,193 @@ export class AssistantView extends LitElement {
         }
     }
 
+    toggleQuestionCompletion(questionId) {
+        this.interviewQuestions = this.interviewQuestions.map(q => 
+            q.id === questionId ? { ...q, completed: !q.completed } : q
+        );
+        this.requestUpdate();
+        
+        // Save questions state to localStorage
+        localStorage.setItem('interviewQuestions', JSON.stringify(this.interviewQuestions));
+    }
+
+    async generateInterviewQuestions() {
+        console.log('🔄 Starting interview questions generation...');
+        if (this.questionsLoading) return;
+
+        this.questionsLoading = true;
+        this.questionsError = '';
+        this.requestUpdate();
+
+        try {
+            // Simple approach - just generate 5 technical questions based on available data
+            this.interviewQuestions = this.generateSimpleQuestions();
+            
+            // Save questions to localStorage
+            localStorage.setItem('interviewQuestions', JSON.stringify(this.interviewQuestions));
+            
+            console.log('✅ Generated', this.interviewQuestions.length, 'questions');
+        } catch (error) {
+            console.error('Error generating interview questions:', error);
+            this.questionsError = error.message;
+            
+            // Always provide fallback questions if generation fails
+            console.log('🔄 Using fallback questions due to error');
+            this.interviewQuestions = this.getFallbackQuestions();
+            localStorage.setItem('interviewQuestions', JSON.stringify(this.interviewQuestions));
+        } finally {
+            this.questionsLoading = false;
+            this.requestUpdate();
+        }
+    }
+
+    generateSimpleQuestions() {
+        const candidateAnalysis = JSON.parse(localStorage.getItem('candidateAnalysis') || '{}');
+        const requirements = candidateAnalysis.candidateInfo?.interviewerRequirements || '';
+        const resumeData = candidateAnalysis.analysis?.resume?.parsedData;
+        
+        // Extract tech stack for questions
+        const techStack = [];
+        if (resumeData?.skills && Array.isArray(resumeData.skills)) {
+            techStack.push(...resumeData.skills.slice(0, 3));
+        }
+        if (candidateAnalysis.analysis?.github?.languages) {
+            const languages = Object.keys(candidateAnalysis.analysis.github.languages).slice(0, 2);
+            techStack.push(...languages);
+        }
+        
+        // Get top technologies
+        const topTech = techStack.length > 0 ? techStack[0] : 'programming';
+        const secondTech = techStack.length > 1 ? techStack[1] : 'development';
+        
+        const questions = [
+            {
+                id: 1,
+                question: `Tell me about your experience with ${topTech} and how you've used it in your projects.`,
+                type: "technical",
+                difficulty: "mid",
+                focus: `Technical expertise in ${topTech}`,
+                completed: false
+            },
+            {
+                id: 2,
+                question: "Walk me through a challenging technical problem you solved recently.",
+                type: "technical",
+                difficulty: "mid",
+                focus: "Problem-solving and technical skills",
+                completed: false
+            },
+            {
+                id: 3,
+                question: `How do you approach debugging issues in ${secondTech}?`,
+                type: "technical",
+                difficulty: "mid",
+                focus: `Debugging skills in ${secondTech}`,
+                completed: false
+            },
+            {
+                id: 4,
+                question: "Describe a project where you had to learn a new technology quickly.",
+                type: "technical",
+                difficulty: "junior",
+                focus: "Learning ability and adaptability",
+                completed: false
+            },
+            {
+                id: 5,
+                question: "How do you ensure code quality and best practices in your projects?",
+                type: "technical",
+                difficulty: "mid",
+                focus: "Code quality and best practices",
+                completed: false
+            }
+        ];
+
+        // Add requirements-based question if specified
+        if (requirements.trim()) {
+            questions.push({
+                id: 6,
+                question: `Based on the role requirements, how would you approach the main technical challenges?`,
+                type: "practical",
+                difficulty: "mid",
+                focus: "Requirements-specific technical assessment",
+                completed: false
+            });
+        }
+
+        return questions;
+    }
+
+    getFallbackQuestions() {
+        // Simple fallback questions - just 5 basic technical questions
+        return [
+            {
+                id: 1,
+                question: "Tell me about your technical background and experience.",
+                type: "technical",
+                difficulty: "mid",
+                focus: "Technical background assessment",
+                completed: false
+            },
+            {
+                id: 2,
+                question: "Walk me through a challenging technical problem you solved recently.",
+                type: "technical",
+                difficulty: "mid",
+                focus: "Problem-solving skills",
+                completed: false
+            },
+            {
+                id: 3,
+                question: "How do you approach debugging and troubleshooting issues?",
+                type: "technical",
+                difficulty: "mid",
+                focus: "Debugging methodology",
+                completed: false
+            },
+            {
+                id: 4,
+                question: "Describe a project where you had to learn a new technology quickly.",
+                type: "technical",
+                difficulty: "junior",
+                focus: "Learning ability",
+                completed: false
+            },
+            {
+                id: 5,
+                question: "How do you ensure code quality and best practices in your projects?",
+                type: "technical",
+                difficulty: "mid",
+                focus: "Code quality practices",
+                completed: false
+            }
+        ];
+    }
+
+    loadInterviewQuestions() {
+        console.log('📋 Loading interview questions...');
+        try {
+            const saved = localStorage.getItem('interviewQuestions');
+            if (saved) {
+                this.interviewQuestions = JSON.parse(saved);
+                console.log('✅ Loaded', this.interviewQuestions.length, 'saved questions');
+            } else {
+                console.log('📝 No saved questions found');
+                // Auto-generate questions if none exist and candidate data is available
+                const candidateAnalysis = localStorage.getItem('candidateAnalysis');
+                if (candidateAnalysis) {
+                    console.log('🤖 Scheduling question generation...');
+                    setTimeout(() => this.generateInterviewQuestions(), 1000);
+                } else {
+                    console.log('❌ No candidate analysis found');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading interview questions:', error);
+            this.interviewQuestions = [];
+        }
+    }
+
     generateInterviewReport() {
         const candidateInfo = this.candidateData?.info || {};
         const resume = this.candidateData?.resume?.parsedData;
@@ -3616,6 +4013,82 @@ export class AssistantView extends LitElement {
         `;
     }
 
+    renderInterviewQuestionsPanel() {
+        return html`
+            <div class="interview-questions-panel">
+                <div class="panel-header">
+                    <span>📝 Interview Questions</span>
+                    ${!this.questionsLoading && this.interviewQuestions.length === 0 ? html`
+                        <button 
+                            class="regenerate-button" 
+                            @click=${this.generateInterviewQuestions}
+                            title="Generate Questions">
+                            🔄
+                        </button>
+                    ` : ''}
+                </div>
+
+                <div class="questions-list">
+                    ${this.questionsLoading ? html`
+                        <div class="questions-loading">
+                            <div class="loading-spinner"></div>
+                            <div>Generating interview questions...</div>
+                        </div>
+                    ` : this.questionsError ? html`
+                        <div class="questions-error">
+                            <div>❌ ${this.questionsError}</div>
+                            <div style="font-size: 12px; margin-top: 8px; opacity: 0.8;">
+                                ${this.interviewQuestions.length > 0 ? 'Using fallback questions instead' : 'No questions available'}
+                            </div>
+                            <button @click=${this.generateInterviewQuestions} style="margin-top: 8px;">
+                                Try Again
+                            </button>
+                        </div>
+                    ` : this.interviewQuestions.length === 0 ? html`
+                        <div class="questions-empty">
+                            <div>📝 No questions generated yet</div>
+                            <button @click=${this.generateInterviewQuestions} style="margin-top: 8px;">
+                                Generate Questions
+                            </button>
+                        </div>
+                    ` : html`
+                        ${this.interviewQuestions.map(question => html`
+                            <div class="question-item ${question.completed ? 'completed' : ''}">
+                                <div 
+                                    class="question-checkbox ${question.completed ? 'checked' : ''}"
+                                    @click=${() => this.toggleQuestionCompletion(question.id)}
+                                ></div>
+                                <div class="question-content">
+                                    <div class="question-text">${question.question}</div>
+                                    <div class="question-meta">
+                                        <span class="question-tag ${question.type}">${question.type}</span>
+                                        <span class="question-tag">${question.difficulty}</span>
+                                        ${question.focus ? html`
+                                            <span class="question-tag" title="${question.focus}">
+                                                ${question.focus.length > 20 ? question.focus.substring(0, 20) + '...' : question.focus}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `)}
+                        
+                        <div style="margin-top: 16px; text-align: center;">
+                            <button 
+                                class="regenerate-button" 
+                                @click=${this.generateInterviewQuestions}
+                                title="Regenerate Questions"
+                                style="padding: 8px 16px; font-size: 12px;">
+                                🔄 Regenerate Questions
+                            </button>
+                        </div>
+                    `}
+                </div>
+
+            </div>
+        `;
+    }
+
     render() {
         const currentResponse = this.getCurrentResponse();
         const responseCounter = this.getResponseCounter();
@@ -3710,6 +4183,9 @@ export class AssistantView extends LitElement {
 
             <!-- Resume Highlights Panel -->
             ${this.renderResumeHighlightsPanel()}
+
+            <!-- Interview Questions Panel -->
+            ${this.renderInterviewQuestionsPanel()}
         `;
     }
 }

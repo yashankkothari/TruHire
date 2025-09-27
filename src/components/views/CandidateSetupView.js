@@ -273,6 +273,7 @@ export class CandidateSetupView extends LitElement {
         candidateName: { type: String },
         candidateEmail: { type: String },
         candidateRole: { type: String },
+        interviewerRequirements: { type: String },
         githubUrl: { type: String },
         resumeFile: { type: Object },
         isAnalyzing: { type: Boolean },
@@ -287,6 +288,7 @@ export class CandidateSetupView extends LitElement {
         this.candidateName = '';
         this.candidateEmail = '';
         this.candidateRole = '';
+        this.interviewerRequirements = '';
         this.githubUrl = '';
         this.resumeFile = null;
         this.isAnalyzing = false;
@@ -437,6 +439,7 @@ export class CandidateSetupView extends LitElement {
                     name: this.candidateName,
                     email: this.candidateEmail,
                     role: this.candidateRole,
+                    interviewerRequirements: this.interviewerRequirements,
                 },
                 analysis: analysisData,
                 analyzedAt: new Date().toISOString(),
@@ -463,6 +466,7 @@ export class CandidateSetupView extends LitElement {
                 name: this.candidateName,
                 email: this.candidateEmail,
                 role: this.candidateRole,
+                interviewerRequirements: this.interviewerRequirements,
             },
             githubUrl: this.githubUrl,
             resumeFile: this.resumeFile,
@@ -518,6 +522,15 @@ export class CandidateSetupView extends LitElement {
                             .value=${this.candidateRole}
                             @input=${(e) => this.handleInputChange('candidateRole', e)}
                         />
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Interviewer Requirements</label>
+                        <textarea
+                            placeholder="Specify your requirements for this interview (e.g., focus on React, system design, problem-solving skills, leadership experience, etc.)"
+                            .value=${this.interviewerRequirements}
+                            @input=${(e) => this.handleInputChange('interviewerRequirements', e)}
+                        ></textarea>
                     </div>
                 </div>
 

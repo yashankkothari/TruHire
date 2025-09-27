@@ -7,15 +7,17 @@ const { getCurrentRandomDisplayName } = require('./processNames');
  * @param {BrowserWindow} mainWindow - The main application window
  */
 function applyStealthMeasures(mainWindow) {
-    // console.log('Applying additional stealth measures...');
+    console.log('Stealth measures disabled for visibility in screenshots');
 
+    // All stealth measures commented out for visibility
+    /*
     // Hide from alt-tab on Windows
     if (process.platform === 'win32') {
         try {
             mainWindow.setSkipTaskbar(true);
-            // console.log('Hidden from Windows taskbar');
+            console.log('Hidden from Windows taskbar');
         } catch (error) {
-            // console.warn('Could not hide from taskbar:', error.message);
+            console.warn('Could not hide from taskbar:', error.message);
         }
     }
 
@@ -23,9 +25,9 @@ function applyStealthMeasures(mainWindow) {
     if (process.platform === 'darwin') {
         try {
             mainWindow.setHiddenInMissionControl(true);
-            // console.log('Hidden from macOS Mission Control');
+            console.log('Hidden from macOS Mission Control');
         } catch (error) {
-            // console.warn('Could not hide from Mission Control:', error.message);
+            console.warn('Could not hide from Mission Control:', error.message);
         }
     }
 
@@ -35,18 +37,18 @@ function applyStealthMeasures(mainWindow) {
             const { app } = require('electron');
             const randomName = getCurrentRandomDisplayName();
             app.setName(randomName);
-            // console.log(`Set app name to: ${randomName}`);
+            console.log(`Set app name to: ${randomName}`);
         } catch (error) {
-            // console.warn('Could not set app name:', error.message);
+            console.warn('Could not set app name:', error.message);
         }
     }
 
     // Prevent screenshots if content protection is enabled
     try {
         mainWindow.setContentProtection(true);
-        // console.log('Content protection enabled');
+        console.log('Content protection enabled');
     } catch (error) {
-        // console.warn('Could not enable content protection:', error.message);
+        console.warn('Could not enable content protection:', error.message);
     }
 
     // Randomize window user agent
@@ -58,10 +60,11 @@ function applyStealthMeasures(mainWindow) {
         ];
         const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
         mainWindow.webContents.setUserAgent(randomUA);
-        // console.log('Set random user agent');
+        console.log('Set random user agent');
     } catch (error) {
-        // console.warn('Could not set user agent:', error.message);
+        console.warn('Could not set user agent:', error.message);
     }
+    */
 }
 
 /**
@@ -69,6 +72,13 @@ function applyStealthMeasures(mainWindow) {
  * @param {BrowserWindow} mainWindow - The main application window
  */
 function startTitleRandomization(mainWindow) {
+    console.log('Title randomization disabled for visibility');
+    
+    // Title randomization disabled for visibility
+    // Keep the window title as "TruHire - AI Interview Assistant"
+    return null;
+    
+    /*
     const titles = [
         'System Configuration',
         'Audio Settings',
@@ -106,14 +116,17 @@ function startTitleRandomization(mainWindow) {
     }, 30000 + Math.random() * 30000); // 30-60 seconds
 
     return interval;
+    */
 }
 
 /**
  * Anti-debugging and anti-analysis measures
  */
 function applyAntiAnalysisMeasures() {
-    // console.log('Applying anti-analysis measures...');
+    console.log('Anti-analysis measures disabled for visibility');
 
+    // Anti-analysis measures disabled for visibility
+    /*
     // Clear console on production
     if (process.env.NODE_ENV === 'production') {
         console.clear();
@@ -124,6 +137,10 @@ function applyAntiAnalysisMeasures() {
     return new Promise(resolve => {
         setTimeout(resolve, delay);
     });
+    */
+    
+    // Return immediately without delay
+    return Promise.resolve();
 }
 
 module.exports = {

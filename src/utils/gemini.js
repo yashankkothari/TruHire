@@ -792,6 +792,152 @@ function setupGeminiIpcHandlers(geminiSessionRef) {
             return { success: false, error: error.message };
         }
     });
+
+    ipcMain.handle('generate-interview-questions', async (event, { resumeData, techStack, interviewerRequirements, apiKey }) => {
+        try {
+            console.log('Generating interview questions...');
+            
+            if (!apiKey) {
+                return { success: false, error: 'API key is required' };
+            }
+
+            const client = new GoogleGenAI({
+                vertexai: false,
+                apiKey: apiKey,
+            });
+
+            const model = client.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+            // Create a comprehensive prompt for question generation
+            const prompt = `
+You are an expert technical interviewer. Based on the candidate's resume and the interviewer's specific requirements, generate 5-8 targeted interview questions that will effectively assess the candidate's skills and fit for the role.
+
+RESUME INFORMATION:
+${resumeData ? JSON.stringify(resumeData, null, 2) : 'No resume data available'}
+
+TECH STACK FROM RESUME:
+${techStack && techStack.length > 0 ? techStack.join(', ') : 'No specific tech stack identified'}
+
+INTERVIEWER REQUIREMENTS:
+${interviewerRequirements || 'No specific requirements provided'}
+
+INSTRUCTIONS:
+1. Generate between 5-8 questions (aim for 6-7 for optimal coverage)
+2. Mix technical and behavioral questions based on the candidate's experience level
+3. Focus on the technologies and skills mentioned in the resume
+4. Incorporate the interviewer's specific requirements
+5. Make questions progressively challenging
+6. Include at least one system design question if the role is senior-level
+7. Include practical/scenario-based questions
+
+FORMAT YOUR RESPONSE AS A JSON ARRAY:
+[
+  {
+    "id": 1,
+    "question": "Question text here",
+    "type": "technical|behavioral|system-design|practical",
+    "difficulty": "junior|mid|senior",
+    "focus": "Brief description of what this question assesses"
+  }
+]
+
+Only return the JSON array, no additional text or formatting.
+`;
+
+            const result = await model.generateContent(prompt);
+            const response = result.response;
+            const text = response.text();
+
+            console.log('Raw AI response:', text);
+
+            // Try to parse the JSON response
+            let questions;
+            try {
+                // Clean the response to extract JSON
+                let cleanText = text.trim();
+                
+                // Remove any markdown code blocks
+                cleanText = cleanText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+                
+                // Try to find JSON array
+                const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
+                if (jsonMatch) {
+                    const jsonString = jsonMatch[0];
+                    console.log('Extracted JSON string:', jsonString);
+                    questions = JSON.parse(jsonString);
+                } else {
+                    // Try parsing the entire response as JSON
+                    questions = JSON.parse(cleanText);
+                }
+                
+                // Validate that we got an array
+                if (!Array.isArray(questions)) {
+                    throw new Error('Response is not an array');
+                }
+                
+                console.log('Successfully parsed', questions.length, 'questions from AI');
+            } catch (parseError) {
+                console.error('Failed to parse AI response as JSON:', parseError);
+                console.log('Raw response was:', text);
+                
+                // Fallback: create default questions if parsing fails
+                questions = [
+                    {
+                        id: 1,
+                        question: "Tell me about your experience with the technologies mentioned in your resume.",
+                        type: "technical",
+                        difficulty: "mid",
+                        focus: "General technical background assessment"
+                    },
+                    {
+                        id: 2,
+                        question: "Describe a challenging project you worked on and how you overcame the difficulties.",
+                        type: "behavioral",
+                        difficulty: "mid",
+                        focus: "Problem-solving and resilience"
+                    },
+                    {
+                        id: 3,
+                        question: "How do you stay updated with the latest developments in your field?",
+                        type: "behavioral",
+                        difficulty: "junior",
+                        focus: "Continuous learning and growth mindset"
+                    },
+                    {
+                        id: 4,
+                        question: "Walk me through how you would approach debugging a performance issue in production.",
+                        type: "practical",
+                        difficulty: "mid",
+                        focus: "Debugging and troubleshooting skills"
+                    },
+                    {
+                        id: 5,
+                        question: "Describe your experience working in a team and handling conflicts.",
+                        type: "behavioral",
+                        difficulty: "mid",
+                        focus: "Teamwork and communication skills"
+                    }
+                ];
+            }
+
+            // Ensure questions have proper structure and IDs
+            questions = questions.map((q, index) => ({
+                id: q.id || index + 1,
+                question: q.question || `Question ${index + 1}`,
+                type: q.type || 'technical',
+                difficulty: q.difficulty || 'mid',
+                focus: q.focus || 'General assessment',
+                completed: false
+            }));
+
+            console.log('Generated questions:', questions);
+
+            return { success: true, questions };
+        } catch (error) {
+            console.error('Error generating interview questions:', error);
+            return { success: false, error: error.message };
+        }
+    });
 }
 
 module.exports = {
