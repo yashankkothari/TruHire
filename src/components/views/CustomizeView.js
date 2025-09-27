@@ -866,7 +866,7 @@ export class CustomizeView extends LitElement {
         return html`
             <div class="settings-container">
                 <!-- Profile & Behavior Section -->
-                <div class="settings-section">
+                <!-- <div class="settings-section">
                     <div class="section-title">
                         <span>AI Profile & Behavior</span>
                     </div>
@@ -904,13 +904,13 @@ export class CustomizeView extends LitElement {
                             <div class="form-description">
                                 Personalize the AI's behavior with specific instructions that will be added to the
                                 ${profileNames[this.selectedProfile] || 'selected profile'} base prompts
-                </div>
+                            </div>
                 </div>
             </div>
-        </div>
+        </div> -->
 
                 <!-- Audio & Microphone Section -->
-                <div class="settings-section">
+                <!-- <div class="settings-section">
                     <div class="section-title">
                         <span>Audio & Microphone</span>
                     </div>
@@ -927,10 +927,10 @@ export class CustomizeView extends LitElement {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div> -->
 
                 <!-- Stealth Profile Section -->
-                <div class="settings-section">
+                <!-- <div class="settings-section">
                     <div class="section-title">
                         <span>Stealth Profile</span>
                     </div>
@@ -951,7 +951,7 @@ export class CustomizeView extends LitElement {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div> -->
 
 
                 <!-- Language & Audio Section -->

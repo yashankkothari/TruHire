@@ -1312,8 +1312,16 @@ export class AssistantView extends LitElement {
                 this.candidateData = {
                     info: currentCandidate.candidateInfo || {},
                     analysis: candidateAnalysis.analysis || {},
-                    resume: candidateAnalysis.resume || null
+                    resume: candidateAnalysis.analysis?.resume || null
                 };
+                
+                // Debug logging for resume data
+                console.log('AssistantView loaded candidate data:', {
+                    hasAnalysis: !!candidateAnalysis.analysis,
+                    hasResume: !!candidateAnalysis.analysis?.resume,
+                    resumeParsedData: !!candidateAnalysis.analysis?.resume?.parsedData,
+                    candidateData: this.candidateData
+                });
                 
                 // Initialize with some baseline insights
                 this.initializeBaselineInsights();
@@ -1979,162 +1987,7 @@ export class AssistantView extends LitElement {
                         </div>
                     </div>
 
-                    <!-- Candidate Info -->
-                    ${info.name ? html`
-                        <div class="analysis-section">
-                            <div class="section-header">
-                                👤 Candidate Information
-                            </div>
-                            <div class="section-content">
-                                <div class="candidate-info">
-                                    ${info.name ? html`
-                                        <div class="info-row">
-                                            <span class="info-label">Name:</span>
-                                            <span class="info-value">${info.name}</span>
-                                        </div>
-                                    ` : ''}
-                                    ${info.role ? html`
-                                        <div class="info-row">
-                                            <span class="info-label">Role:</span>
-                                            <span class="info-value">${info.role}</span>
-                                        </div>
-                                    ` : ''}
-                                    ${github ? html`
-                                        <div class="info-row">
-                                            <span class="info-label">GitHub:</span>
-                                            <span class="info-value">${github.userInfo.username}</span>
-                                        </div>
-                                        <div class="info-row">
-                                            <span class="info-label">Repositories:</span>
-                                            <span class="info-value">${github.userInfo.publicRepos}</span>
-                                        </div>
-                                        <div class="info-row">
-                                            <span class="info-label">Primary Language:</span>
-                                            <span class="info-value">${github.languageStats[0]?.language || 'N/A'}</span>
-                                        </div>
-                                    ` : ''}
-                                    ${this.candidateData?.resume?.parsedData ? html`
-                                        <div class="info-row">
-                                            <span class="info-label">Resume:</span>
-                                            <span class="info-value">📄 ${this.candidateData.resume.fileName}</span>
-                                        </div>
-                                        ${this.candidateData.resume.parsedData.personalInfo?.email ? html`
-                                            <div class="info-row">
-                                                <span class="info-label">Email:</span>
-                                                <span class="info-value">${this.candidateData.resume.parsedData.personalInfo.email}</span>
-                                            </div>
-                                        ` : ''}
-                                        ${this.candidateData.resume.parsedData.personalInfo?.phone ? html`
-                                            <div class="info-row">
-                                                <span class="info-label">Phone:</span>
-                                                <span class="info-value">${this.candidateData.resume.parsedData.personalInfo.phone}</span>
-                                            </div>
-                                        ` : ''}
-                                        ${this.candidateData.resume.parsedData.personalInfo?.location ? html`
-                                            <div class="info-row">
-                                                <span class="info-label">Location:</span>
-                                                <span class="info-value">${this.candidateData.resume.parsedData.personalInfo.location}</span>
-                                            </div>
-                                        ` : ''}
-                                        ${this.candidateData.resume.parsedData.summary?.estimatedExperienceLevel ? html`
-                                            <div class="info-row">
-                                                <span class="info-label">Experience Level:</span>
-                                                <span class="info-value">${this.candidateData.resume.parsedData.summary.estimatedExperienceLevel}</span>
-                                            </div>
-                                        ` : ''}
-                                    ` : ''}
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
 
-                    <!-- Resume Details -->
-                    ${this.candidateData?.resume?.parsedData ? html`
-                        <div class="analysis-section">
-                            <div class="section-header">
-                                📋 Resume Analysis
-                            </div>
-                            <div class="section-content">
-                                <!-- Skills Section -->
-                                ${this.candidateData.resume.parsedData.skills?.all?.length > 0 ? html`
-                                    <div class="resume-subsection">
-                                        <div class="subsection-title">💻 Technical Skills (${this.candidateData.resume.parsedData.skills.all.length})</div>
-                                        <div class="skills-grid">
-                                            ${this.candidateData.resume.parsedData.skills.languages?.length > 0 ? html`
-                                                <div class="skill-category">
-                                                    <span class="skill-label">Languages:</span>
-                                                    <span class="skill-items">${this.candidateData.resume.parsedData.skills.languages.slice(0, 5).join(', ')}</span>
-                                                </div>
-                                            ` : ''}
-                                            ${this.candidateData.resume.parsedData.skills.frameworks?.length > 0 ? html`
-                                                <div class="skill-category">
-                                                    <span class="skill-label">Frameworks:</span>
-                                                    <span class="skill-items">${this.candidateData.resume.parsedData.skills.frameworks.slice(0, 5).join(', ')}</span>
-                                                </div>
-                                            ` : ''}
-                                            ${this.candidateData.resume.parsedData.skills.databases?.length > 0 ? html`
-                                                <div class="skill-category">
-                                                    <span class="skill-label">Databases:</span>
-                                                    <span class="skill-items">${this.candidateData.resume.parsedData.skills.databases.slice(0, 5).join(', ')}</span>
-                                                </div>
-                                            ` : ''}
-                                            ${this.candidateData.resume.parsedData.skills.cloud?.length > 0 ? html`
-                                                <div class="skill-category">
-                                                    <span class="skill-label">Cloud:</span>
-                                                    <span class="skill-items">${this.candidateData.resume.parsedData.skills.cloud.slice(0, 5).join(', ')}</span>
-                                                </div>
-                                            ` : ''}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                                
-                                <!-- Experience Section -->
-                                ${this.candidateData.resume.parsedData.experience?.length > 0 ? html`
-                                    <div class="resume-subsection">
-                                        <div class="subsection-title">💼 Work Experience (${this.candidateData.resume.parsedData.experience.length})</div>
-                                        ${this.candidateData.resume.parsedData.experience.slice(0, 3).map(exp => html`
-                                            <div class="experience-item">
-                                                <div class="experience-header">
-                                                    <span class="experience-title">${exp.title || 'Position'}</span>
-                                                    ${exp.company ? html`<span class="experience-company">@ ${exp.company}</span>` : ''}
-                                                </div>
-                                                ${exp.duration ? html`<div class="experience-duration">${exp.duration}</div>` : ''}
-                                            </div>
-                                        `)}
-                                    </div>
-                                ` : ''}
-                                
-                                <!-- Education Section -->
-                                ${this.candidateData.resume.parsedData.education?.length > 0 ? html`
-                                    <div class="resume-subsection">
-                                        <div class="subsection-title">🎓 Education</div>
-                                        ${this.candidateData.resume.parsedData.education.slice(0, 2).map(edu => html`
-                                            <div class="education-item">
-                                                <div class="education-degree">${edu.degree || 'Degree'}</div>
-                                                ${edu.institution ? html`<div class="education-institution">${edu.institution}</div>` : ''}
-                                                ${edu.year ? html`<div class="education-year">${edu.year}</div>` : ''}
-                                            </div>
-                                        `)}
-                                    </div>
-                                ` : ''}
-                                
-                                <!-- Projects Section -->
-                                ${this.candidateData.resume.parsedData.projects?.length > 0 ? html`
-                                    <div class="resume-subsection">
-                                        <div class="subsection-title">🚀 Projects (${this.candidateData.resume.parsedData.projects.length})</div>
-                                        ${this.candidateData.resume.parsedData.projects.slice(0, 2).map(project => html`
-                                            <div class="project-item">
-                                                <div class="project-name">${project.name}</div>
-                                                ${project.description?.length > 0 ? html`
-                                                    <div class="project-description">${project.description[0].substring(0, 100)}${project.description[0].length > 100 ? '...' : ''}</div>
-                                                ` : ''}
-                                            </div>
-                                        `)}
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    ` : ''}
 
                     <!-- Live Insights -->
                     <div class="analysis-section">

@@ -373,7 +373,92 @@ export class TruHireApp extends LitElement {
             context += `RESUME INFORMATION:\n`;
             context += `- File: ${resume.fileName}\n`;
             context += `- Size: ${(resume.fileSize / 1024).toFixed(1)} KB\n`;
-            // TODO: Add parsed resume content when resume analysis is implemented
+            
+            // Add parsed resume content if available
+            if (resume.parsedData) {
+                const parsed = resume.parsedData;
+                
+                // Personal information
+                if (parsed.personalInfo) {
+                    context += `\nPERSONAL INFORMATION:\n`;
+                    if (parsed.personalInfo.name) context += `- Name: ${parsed.personalInfo.name}\n`;
+                    if (parsed.personalInfo.email) context += `- Email: ${parsed.personalInfo.email}\n`;
+                    if (parsed.personalInfo.phone) context += `- Phone: ${parsed.personalInfo.phone}\n`;
+                    if (parsed.personalInfo.location) context += `- Location: ${parsed.personalInfo.location}\n`;
+                    if (parsed.personalInfo.linkedin) context += `- LinkedIn: ${parsed.personalInfo.linkedin}\n`;
+                    if (parsed.personalInfo.github) context += `- GitHub: ${parsed.personalInfo.github}\n`;
+                }
+                
+                // Skills
+                if (parsed.skills?.all?.length > 0) {
+                    context += `\nTECHNICAL SKILLS:\n`;
+                    const skillCategories = ['programming', 'frameworks', 'databases', 'cloud', 'tools'];
+                    skillCategories.forEach(category => {
+                        if (parsed.skills[category]?.length > 0) {
+                            context += `- ${category.charAt(0).toUpperCase() + category.slice(1)}: ${parsed.skills[category].join(', ')}\n`;
+                        }
+                    });
+                    if (parsed.skills.other?.length > 0) {
+                        context += `- Other: ${parsed.skills.other.join(', ')}\n`;
+                    }
+                }
+                
+                // Work experience
+                if (parsed.experience?.length > 0) {
+                    context += `\nWORK EXPERIENCE:\n`;
+                    parsed.experience.slice(0, 3).forEach((job, index) => {
+                        context += `${index + 1}. ${job.title || 'Unknown Title'} at ${job.company || 'Unknown Company'}\n`;
+                        if (job.duration) context += `   Duration: ${job.duration}\n`;
+                        if (job.description) {
+                            const shortDesc = job.description.length > 100 
+                                ? job.description.substring(0, 100) + '...'
+                                : job.description;
+                            context += `   Description: ${shortDesc}\n`;
+                        }
+                    });
+                }
+                
+                // Education
+                if (parsed.education?.length > 0) {
+                    context += `\nEDUCATION:\n`;
+                    parsed.education.forEach((edu, index) => {
+                        context += `${index + 1}. ${edu.degree || 'Unknown Degree'} from ${edu.institution || 'Unknown Institution'}\n`;
+                        if (edu.year) context += `   Year: ${edu.year}\n`;
+                    });
+                }
+                
+                // Projects
+                if (parsed.projects?.length > 0) {
+                    context += `\nPROJECTS:\n`;
+                    parsed.projects.slice(0, 3).forEach((project, index) => {
+                        context += `${index + 1}. ${project.name || 'Unnamed Project'}\n`;
+                        if (project.description) {
+                            const shortDesc = project.description.length > 100 
+                                ? project.description.substring(0, 100) + '...'
+                                : project.description;
+                            context += `   Description: ${shortDesc}\n`;
+                        }
+                        if (project.technologies?.length > 0) {
+                            context += `   Technologies: ${project.technologies.join(', ')}\n`;
+                        }
+                    });
+                }
+                
+                // Summary
+                if (parsed.summary) {
+                    context += `\nRESUME SUMMARY:\n`;
+                    if (parsed.summary.estimatedExperienceLevel) {
+                        context += `- Experience Level: ${parsed.summary.estimatedExperienceLevel}\n`;
+                    }
+                    if (parsed.summary.keyStrengths?.length > 0) {
+                        context += `- Key Strengths: ${parsed.summary.keyStrengths.join(', ')}\n`;
+                    }
+                    if (parsed.summary.primaryDomains?.length > 0) {
+                        context += `- Primary Domains: ${parsed.summary.primaryDomains.join(', ')}\n`;
+                    }
+                }
+            }
+            
             context += `\n`;
         }
         
