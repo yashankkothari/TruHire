@@ -262,22 +262,24 @@ export class AssistantView extends LitElement {
             font-weight: 600;
         }
 
-        .response-container::-webkit-scrollbar {
-            width: 8px;
+        /* Hide scrollbars for all scrollable containers */
+        .response-container::-webkit-scrollbar,
+        .analysis-content::-webkit-scrollbar,
+        .transcript-content::-webkit-scrollbar,
+        .highlights-content::-webkit-scrollbar,
+        .questions-content::-webkit-scrollbar,
+        .questions-list::-webkit-scrollbar {
+            display: none;
         }
 
-        .response-container::-webkit-scrollbar-track {
-            background: var(--scrollbar-track);
-            border-radius: 4px;
-        }
-
-        .response-container::-webkit-scrollbar-thumb {
-            background: var(--scrollbar-thumb);
-            border-radius: 4px;
-        }
-
-        .response-container::-webkit-scrollbar-thumb:hover {
-            background: var(--scrollbar-thumb-hover);
+        /* For Firefox */
+        .response-container,
+        .analysis-content,
+        .transcript-content,
+        .highlights-content,
+        .questions-content,
+        .questions-list {
+            scrollbar-width: none;
         }
 
         .text-input-container {

@@ -264,3 +264,22 @@ module.exports = {
     profilePrompts,
     getSystemPrompt,
 };
+
+// ├── Technical Accuracy: +6 points
+// ├── Framework Knowledge: +5 points 
+// ├── Detailed Explanations: +5 points
+// ├── Problem Solving: +5 points 
+// ├── Consistent Answers: +4 points
+// ├── Specific Examples: +4 points
+// ├── Project Details: +4 points 
+// ├── Verifiable Claims: +3 points 
+// ├── Honest Limitations: +3 points
+// └── Admits Uncertainty: +2 points
+
+// ├── False Claims:  → -12 points
+// ├── Experience Mismatch:  → -8 points 
+// ├── Resume Mismatch: → -7 points 
+// ├── Skill Contradiction: → -6 points
+// ├── Technical Errors:  → -4 points 
+// ├── Timeline Issues:  → -5 points 
+// └── Vague Answers: → -2 points
