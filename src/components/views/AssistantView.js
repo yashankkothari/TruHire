@@ -1100,7 +1100,7 @@ export class AssistantView extends LitElement {
         // Initialize analysis data
         this.candidateData = null;
         this.liveInsights = [];
-        this.credibilityScore = 85; // Start at 85 to allow for both improvement and decline
+        this.credibilityScore = 75; // Start at 75 to allow for both improvement and decline
         this.inconsistenciesCount = 0;
         this.credibilityHistory = [];
         this.flaggedContradictions = new Set(); // Track already flagged contradictions
@@ -1613,14 +1613,8 @@ export class AssistantView extends LitElement {
                 'Response contains multiple uncertainty indicators and lacks detail.');
         }
         
-        // Positive indicators
-        if (response.length > 200 && (lowerResponse.includes('specifically') || lowerResponse.includes('for example'))) {
-            this.updateCredibilityScore('detailed-explanation', 'medium');
-        }
-        
-        if (lowerResponse.includes("i don't know") || lowerResponse.includes("i'm not familiar")) {
-            this.updateCredibilityScore('admits-uncertainty', 'low');
-        }
+        // Enhanced positive indicators
+        this.detectPositiveIndicators(response, github);
     }
 
     checkResumeContradictions(response, resume) {
@@ -1699,7 +1693,7 @@ export class AssistantView extends LitElement {
     updateCredibilityScore(contradictionType = null, severity = 'medium') {
         // Initialize base score if not set
         if (this.credibilityScore === undefined) {
-            this.credibilityScore = 85; // Start with 85 instead of 100 to allow for improvement
+            this.credibilityScore = 75; // Start with 75 to allow for both improvement and decline
         }
 
         // Real-time credibility adjustments based on contradiction type
@@ -1713,7 +1707,7 @@ export class AssistantView extends LitElement {
         }
 
         // Comprehensive credibility calculation
-        let baseScore = 85;
+        let baseScore = 75;
         let adjustments = 0;
         
         // Major deductions for serious contradictions
@@ -1795,23 +1789,29 @@ export class AssistantView extends LitElement {
         };
 
         const baseAdjustments = {
-            'experience-mismatch': -20,
-            'skill-contradiction': -15,
-            'false-claim': -25,
-            'technical-error': -10,
-            'resume-mismatch': -18,
-            'timeline-inconsistency': -12,
-            'factual-error': -15,
-            'exaggeration': -8,
-            'vague-answer': -5,
-            'defensive-behavior': -7,
-            'sensitive-claim': -3,
-            'achievement-inflation': -12,
-            'location-mismatch': -8,
-            'consistent-answer': +3,
-            'detailed-explanation': +2,
-            'admits-uncertainty': +1,
-            'verifiable-claim': +2
+            'experience-mismatch': -8,
+            'skill-contradiction': -6,
+            'false-claim': -12,
+            'technical-error': -4,
+            'resume-mismatch': -7,
+            'timeline-inconsistency': -5,
+            'factual-error': -6,
+            'exaggeration': -3,
+            'vague-answer': -2,
+            'defensive-behavior': -3,
+            'sensitive-claim': -1,
+            'achievement-inflation': -5,
+            'location-mismatch': -3,
+            'consistent-answer': +4,
+            'detailed-explanation': +5,
+            'admits-uncertainty': +2,
+            'verifiable-claim': +3,
+            'technical-accuracy': +6,
+            'framework-knowledge': +5,
+            'project-details': +4,
+            'honest-limitation': +3,
+            'specific-example': +4,
+            'problem-solving': +5
         };
 
         const baseAdjustment = baseAdjustments[contradictionType] || -10;
@@ -1976,6 +1976,9 @@ export class AssistantView extends LitElement {
         
         // Generate verification summary
         this.generateVerificationSummary(response);
+        
+        // Detect positive indicators for credibility boost
+        this.detectPositiveIndicators(response, resume, github);
     }
 
     verifyExperienceYears(response, resume) {
@@ -2282,6 +2285,232 @@ export class AssistantView extends LitElement {
         console.log('Contradiction tracking reset');
     }
 
+    detectPositiveIndicators(response, resume = null, github = null) {
+        const lowerResponse = response.toLowerCase();
+        
+        // Detailed explanations
+        if (response.length > 150 && (lowerResponse.includes('specifically') || lowerResponse.includes('for example') || lowerResponse.includes('in particular'))) {
+            this.addPositiveIndicator('detailed-explanation', 'medium', 'DETAILED EXPLANATION', 'Provided specific examples and details');
+        }
+        
+        // Technical accuracy indicators
+        this.detectTechnicalAccuracy(response);
+        
+        // Framework knowledge demonstration
+        this.detectFrameworkKnowledge(response, resume, github);
+        
+        // Problem-solving indicators
+        this.detectProblemSolving(response);
+        
+        // Honesty indicators
+        this.detectHonesty(response);
+        
+        // Specific examples
+        if (lowerResponse.includes('when i') || lowerResponse.includes('in my experience') || lowerResponse.includes('at my previous')) {
+            this.addPositiveIndicator('specific-example', 'low', 'SPECIFIC EXAMPLE', 'Provided concrete examples from experience');
+        }
+        
+        // Admits limitations honestly
+        if (lowerResponse.includes("i don't know") || lowerResponse.includes("i'm not familiar") || lowerResponse.includes("i haven't worked with")) {
+            this.addPositiveIndicator('honest-limitation', 'low', 'HONEST ABOUT LIMITATIONS', 'Admits knowledge gaps honestly');
+        }
+        
+        // Verify claims that match resume/GitHub (positive reinforcement)
+        this.detectVerifiableClaims(response, resume, github);
+    }
+
+    detectVerifiableClaims(response, resume, github) {
+        const lowerResponse = response.toLowerCase();
+        
+        // Check if mentioned skills are actually in their resume
+        if (resume?.skills?.all) {
+            resume.skills.all.forEach(skill => {
+                if (lowerResponse.includes(skill.toLowerCase()) && skill.length > 3) {
+                    this.addPositiveIndicator('verifiable-claim', 'low', 
+                        'SKILL CLAIM VERIFIED', 
+                        `Mentioned "${skill}" which is confirmed in resume`);
+                }
+            });
+        }
+        
+        // Check if mentioned companies are in their resume
+        if (resume?.experience) {
+            resume.experience.forEach(exp => {
+                if (exp.company && lowerResponse.includes(exp.company.toLowerCase())) {
+                    this.addPositiveIndicator('verifiable-claim', 'medium', 
+                        'EMPLOYMENT VERIFIED', 
+                        `Mentioned "${exp.company}" which matches resume employment history`);
+                }
+            });
+        }
+        
+        // Check if mentioned projects are in GitHub
+        if (github?.repositories) {
+            github.repositories.forEach(repo => {
+                if (repo.name && lowerResponse.includes(repo.name.toLowerCase())) {
+                    this.addPositiveIndicator('project-details', 'medium', 
+                        'PROJECT VERIFIED', 
+                        `Discussed "${repo.name}" project which exists in their GitHub`);
+                }
+            });
+        }
+    }
+
+    detectTechnicalAccuracy(response) {
+        const lowerResponse = response.toLowerCase();
+        
+        // Correct technical statements
+        const accurateStatements = [
+            { pattern: /react.*library/i, reward: 'React correctly identified as library' },
+            { pattern: /javascript.*interpreted/i, reward: 'Correctly understands JavaScript execution' },
+            { pattern: /html.*markup/i, reward: 'Correctly identifies HTML as markup language' },
+            { pattern: /css.*styling/i, reward: 'Correctly identifies CSS purpose' },
+            { pattern: /node.*backend|node.*server/i, reward: 'Correctly identifies Node.js use case' },
+            { pattern: /git.*version control/i, reward: 'Correctly understands Git purpose' },
+            { pattern: /database.*relational.*sql/i, reward: 'Shows understanding of database types' },
+            { pattern: /api.*rest.*http/i, reward: 'Demonstrates API knowledge' }
+        ];
+
+        accurateStatements.forEach(statement => {
+            if (statement.pattern.test(response)) {
+                this.addPositiveIndicator('technical-accuracy', 'medium', 'TECHNICAL ACCURACY', statement.reward);
+            }
+        });
+    }
+
+    detectFrameworkKnowledge(response, resume, github) {
+        const lowerResponse = response.toLowerCase();
+        
+        // Check for demonstrated framework knowledge
+        const frameworkKnowledge = [
+            { 
+                framework: 'react', 
+                indicators: ['hooks', 'usestate', 'useeffect', 'jsx', 'components', 'props', 'state management'],
+                description: 'React concepts'
+            },
+            { 
+                framework: 'angular', 
+                indicators: ['components', 'services', 'dependency injection', 'typescript', 'rxjs'],
+                description: 'Angular concepts'
+            },
+            { 
+                framework: 'vue', 
+                indicators: ['components', 'directives', 'vuex', 'single file components'],
+                description: 'Vue.js concepts'
+            },
+            { 
+                framework: 'node', 
+                indicators: ['express', 'middleware', 'async', 'callbacks', 'npm', 'modules'],
+                description: 'Node.js concepts'
+            }
+        ];
+
+        frameworkKnowledge.forEach(fw => {
+            const mentionsFramework = lowerResponse.includes(fw.framework);
+            const showsKnowledge = fw.indicators.some(indicator => lowerResponse.includes(indicator));
+            
+            if (mentionsFramework && showsKnowledge) {
+                // Check if this framework is in their resume/GitHub
+                let hasEvidence = false;
+                
+                if (resume?.skills?.frameworks) {
+                    hasEvidence = resume.skills.frameworks.some(skill => skill.toLowerCase().includes(fw.framework));
+                }
+                
+                if (!hasEvidence && github?.languageStats) {
+                    hasEvidence = github.languageStats.some(lang => lang.language.toLowerCase().includes(fw.framework));
+                }
+                
+                if (hasEvidence) {
+                    this.addPositiveIndicator('framework-knowledge', 'medium', 
+                        'FRAMEWORK EXPERTISE VERIFIED', 
+                        `Demonstrates solid understanding of ${fw.description} with supporting evidence`);
+                } else {
+                    this.addPositiveIndicator('framework-knowledge', 'low', 
+                        'FRAMEWORK KNOWLEDGE SHOWN', 
+                        `Shows understanding of ${fw.description} (verify against experience)`);
+                }
+            }
+        });
+    }
+
+    detectProblemSolving(response) {
+        const lowerResponse = response.toLowerCase();
+        
+        const problemSolvingIndicators = [
+            'approached the problem by',
+            'solved this by',
+            'my solution was',
+            'i debugged by',
+            'troubleshooting',
+            'identified the issue',
+            'root cause',
+            'optimized by',
+            'refactored to',
+            'implemented a solution'
+        ];
+
+        const problemSolvingCount = problemSolvingIndicators.filter(indicator => 
+            lowerResponse.includes(indicator)
+        ).length;
+
+        if (problemSolvingCount > 0) {
+            this.addPositiveIndicator('problem-solving', 'medium', 
+                'PROBLEM-SOLVING DEMONSTRATED', 
+                `Shows analytical thinking and problem-solving approach`);
+        }
+    }
+
+    detectHonesty(response) {
+        const lowerResponse = response.toLowerCase();
+        
+        // Honest uncertainty (positive)
+        const honestyIndicators = [
+            "i'm not sure about",
+            "i would need to research",
+            "i haven't encountered that",
+            "that's outside my experience",
+            "i would ask for help",
+            "i'm still learning"
+        ];
+
+        honestyIndicators.forEach(indicator => {
+            if (lowerResponse.includes(indicator)) {
+                this.addPositiveIndicator('honest-limitation', 'low', 
+                    'HONEST ABOUT LIMITATIONS', 
+                    'Shows intellectual honesty and self-awareness');
+            }
+        });
+    }
+
+    addPositiveIndicator(type, severity, header, content) {
+        // Create unique key to prevent duplicate positive indicators too
+        const indicatorKey = `positive-${type}-${header}-${content.substring(0, 30)}`;
+        
+        if (this.flaggedContradictions.has(indicatorKey)) {
+            return; // Don't add duplicate positive indicators
+        }
+        
+        this.flaggedContradictions.add(indicatorKey);
+        
+        const indicator = {
+            type: 'success',
+            time: this.formatTime(new Date()),
+            header: header,
+            content: content
+        };
+        
+        this.liveInsights.unshift(indicator);
+        
+        // Update credibility score positively
+        this.updateCredibilityScore(type, severity);
+        
+        // Trigger UI update
+        this.requestUpdate();
+        
+        console.log(`Positive indicator added: ${header} (+${this.getCredibilityAdjustment(type, severity)} points)`);
+    }
+
     verifySalaryClaims(response, resume) {
         // Check for salary/compensation claims
         const salaryPatterns = [
@@ -2404,11 +2633,13 @@ export class AssistantView extends LitElement {
     getCredibilityRecommendation() {
         const score = this.credibilityScore;
         if (score >= 85) {
-            return 'High credibility - Candidate appears trustworthy and consistent.';
+            return 'Excellent credibility - Candidate demonstrates strong knowledge and honesty.';
         } else if (score >= 70) {
-            return 'Moderate credibility - Some minor inconsistencies detected.';
-        } else if (score >= 50) {
-            return 'Low credibility - Multiple contradictions found. Probe deeper.';
+            return 'Good credibility - Candidate appears reliable with minor inconsistencies.';
+        } else if (score >= 55) {
+            return 'Moderate credibility - Some concerns detected. Continue with caution.';
+        } else if (score >= 40) {
+            return 'Low credibility - Multiple issues found. Probe deeper into claims.';
         } else {
             return 'Very low credibility - Significant concerns. Consider ending interview.';
         }
